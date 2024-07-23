@@ -185,46 +185,33 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 	TArray<FColor> vertex_colors;
 	TArray<FProcMeshTangent> tangents;
 	TMap<FVector, int32> vertex_map;
-	
-	TStaticBitArray<CHUNK_VOLUME> candidates;
-	TStaticArray<uint8_t, CHUNK_VOLUME> faces = TStaticArray<uint8_t, CHUNK_VOLUME>(InPlace, 0);
+	TStaticArray<TStaticBitArray<CHUNK_VOLUME>, 6> faces_array;
 	TStaticBitArray<CHUNK_SIZE * CHUNK_SIZE> visited;
 	
+	const double start = FPlatformTime::Seconds();
 	int32 pos = 0;
 	//int32 old_count = 0;
 	for (int32 z = 0; z < CHUNK_SIZE; ++z) {
 		for (int32 y = 0; y < CHUNK_SIZE; ++y) {
 			for (int32 x = 0; x < CHUNK_SIZE; ++x) {
-				if (cells[pos]) {
+				if (cells[index(x, y, z)]) {
 					if (z == 0 || cells[pos - CHUNK_SIZE * CHUNK_SIZE] == 0) {
-						candidates[pos] = 1;
-						faces[pos] |= 1;
-						//old_count++;
+						faces_array[0][index(x, y, z)] = 1;
 					}
 					if (z == CHUNK_SIZE - 1 || cells[pos + CHUNK_SIZE * CHUNK_SIZE] == 0) {
-						candidates[pos] = 1;
-						faces[pos] |= (1 << 1);
-						//old_count++;
+						faces_array[1][index(x, y, z)] = 1;
 					}
 					if (y == 0 || cells[pos - CHUNK_SIZE] == 0) {
-						candidates[pos] = 1;
-						faces[pos] |= (1 << 2);
-						//old_count++;
+						faces_array[2][index(x, z, y)] = 1;
 					}
 					if (y == CHUNK_SIZE - 1 || cells[pos + CHUNK_SIZE] == 0) {
-						candidates[pos] = 1;
-						faces[pos] |= (1 << 3);
-						//old_count++;
+						faces_array[3][index(x, z, y)] = 1;
 					}
 					if (x == 0 || cells[pos - 1] == 0) {
-						candidates[pos] = 1;
-						faces[pos] |= (1 << 4);
-						//old_count++;
+						faces_array[4][index(y, z, x)] = 1;
 					}
 					if (x == CHUNK_SIZE - 1 || cells[pos + 1] == 0) {
-						candidates[pos] = 1;
-						faces[pos] |= (1 << 5);
-						//old_count++;
+						faces_array[5][index(y, z, x)] = 1;
 					}
 				}
 				pos++;
@@ -232,15 +219,18 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 		}
 	}
 	pos = 0;
+	double end = FPlatformTime::Seconds();
+	UE_LOG(LogTemp, Display, TEXT("computed faces in %f seconds"), end - start);
 	//int32 new_count = 0;
-	for (int32 z = 0; z < CHUNK_SIZE; z++) {
-		for (int32 face = 0; face <= 1; face++) {
+	for (int face = 0; face < 6; face++) {
+		TStaticBitArray<CHUNK_VOLUME> &faces = faces_array[face];
+		for (int32 z = 0; z < CHUNK_SIZE; z++) {
 			visited = visited ^ visited;
 			int x = 0;
 			int y = 0;
 			int32 vPos = 0;
 			while (y < CHUNK_SIZE) {
-				if (visited[vPos] || !candidates[index(x, y, z)] || !(faces[index(x, y, z)] & (1 << face))) {
+				if (visited[vPos] || !faces[index(x, y, z)]) {
 					vPos++;
 					if (x < CHUNK_SIZE - 1) {
 						x++;
@@ -252,15 +242,15 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 				}
 				visited[vPos] = 1;
 				int width = 1;
-				while (x + width < CHUNK_SIZE && !visited[x + width + CHUNK_SIZE * y] && (faces[index(x + width, y, z)] & (1 << face))) {
+				while (x + width < CHUNK_SIZE && !visited[x + width + CHUNK_SIZE * y] && faces[index(x + width, y, z)]) {
 					visited[vPos + width] = 1;
 					width++;
 				}
 				int height = 1;
-				while (y + height < CHUNK_SIZE && (faces[index(x, y + height, z)] & (1 << face))) {
+				while (y + height < CHUNK_SIZE && faces[index(x, y + height, z)]) {
 					bool flag = false;
 					for (int i = 0; i < width; i++) {
-						if (!(faces[index(x + i, y + height, z)] & (1 << face))) {
+						if (!faces[index(x + i, y + height, z)]) {
 							flag = true;
 							break;
 						}
@@ -273,10 +263,27 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 					}
 					height++;
 				}
-				if (face % 2) {
-					create_quad(FVector(x, y, z + 1), FVector(x, y + height, z + 1), FVector(x + width, y + height, z + 1), FVector(x + width, y, z + 1), FVector(0.0f, 0.0f, 1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				} else {
+				switch (face) {
+				case 0:
 					create_quad(FVector(x, y, z), FVector(x + width, y, z), FVector(x + width, y + height, z), FVector(x, y + height, z), FVector(0.0f, 0.0f, -1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					break;
+				case 1:
+					create_quad(FVector(x, y, z + 1), FVector(x, y + height, z + 1), FVector(x + width, y + height, z + 1), FVector(x + width, y, z + 1), FVector(0.0f, 0.0f, 1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					break;
+				case 2:
+					create_quad(FVector(x, z, y), FVector(x, z, y + height), FVector(x + width, z, y + height), FVector(x + width, z, y), FVector(0.0f, -1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					break;
+				case 3:
+					create_quad(FVector(x, z + 1, y), FVector(x + width, z + 1, y), FVector(x + width, z + 1, y + height), FVector(x, z + 1, y + height), FVector(0.0f, 1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					break;
+				case 4:
+					create_quad(FVector(z, x, y), FVector(z, x + width, y), FVector(z, x + width, y + height), FVector(z, x, y + height), FVector(-1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					break;
+				case 5:
+					create_quad(FVector(z + 1, x, y), FVector(z + 1, x, y + height), FVector(z + 1, x + width, y + height), FVector(z + 1, x + width, y), FVector(1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					break;
+				default:
+					break;
 				}
 				//new_count++;
 				x += width;
@@ -288,118 +295,7 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 			}
 		}
 	}
-	for (int32 y = 0; y < CHUNK_SIZE; y++) {
-		for (int32 face = 2; face <= 3; face++) {
-			visited = visited ^ visited;
-			int x = 0;
-			int z = 0;
-			int32 vPos = 0;
-			while (z < CHUNK_SIZE) {
-				if (visited[vPos] || !candidates[index(x, y, z)] || !(faces[index(x, y, z)] & (1 << face))) {
-					vPos++;
-					if (x < CHUNK_SIZE - 1) {
-						x++;
-					} else {
-						x = 0;
-						z++;
-					}
-					continue;
-				}
-				visited[vPos] = 1;
-				int width = 1;
-				while (x + width < CHUNK_SIZE && !visited[x + width + CHUNK_SIZE * z] && (faces[index(x + width, y, z)] & (1 << face))) {
-					visited[vPos + width] = 1;
-					width++;
-				}
-				int height = 1;
-				while (z + height < CHUNK_SIZE && (faces[index(x, y, z + height)] & (1 << face))) {
-					bool flag = false;
-					for (int i = 0; i < width; i++) {
-						if (!(faces[index(x + i, y, z + height)] & (1 << face))) {
-							flag = true;
-							break;
-						}
-					}
-					if (flag) {
-						break;
-					}
-					for (int i = 0; i < width; i++) {
-						visited[x + i + CHUNK_SIZE * (z + height)] = 1;
-					}
-					height++;
-				}
-				if (face % 2) {
-					create_quad(FVector(x, y + 1, z), FVector(x + width, y + 1, z), FVector(x + width, y + 1, z + height), FVector(x, y + 1, z + height), FVector(0.0f, 1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				} else {
-					create_quad(FVector(x, y, z), FVector(x, y, z + height), FVector(x + width, y, z + height), FVector(x + width, y, z), FVector(0.0f, -1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				}
-				//new_count++;
-				x += width;
-				vPos += width;
-				if (x >= CHUNK_SIZE) {
-					x = 0;
-					z++;
-				}
-			}
-		}
-	}
-	for (int32 x = 0; x < CHUNK_SIZE; x++) {
-		for (int32 face = 4; face <= 5; face++) {
-			visited = visited ^ visited;
-			int y = 0;
-			int z = 0;
-			int32 vPos = 0;
-			while (z < CHUNK_SIZE) {
-				if (visited[vPos] || !candidates[index(x, y, z)] || !(faces[index(x, y, z)] & (1 << face))) {
-					vPos++;
-					if (y < CHUNK_SIZE - 1) {
-						y++;
-					} else {
-						y = 0;
-						z++;
-					}
-					continue;
-				}
-				visited[vPos] = 1;
-				int width = 1;
-				while (y + width < CHUNK_SIZE && !visited[y + width + CHUNK_SIZE * z] && (faces[index(x, y + width, z)] & (1 << face))) {
-					visited[vPos + width] = 1;
-					width++;
-				}
-				int height = 1;
-				while (z + height < CHUNK_SIZE && (faces[index(x, y, z + height)] & (1 << face))) {
-					bool flag = false;
-					for (int i = 0; i < width; i++) {
-						if (!(faces[index(x, y + i, z + height)] & (1 << face))) {
-							flag = true;
-							break;
-						}
-					}
-					if (flag) {
-						break;
-					}
-					for (int i = 0; i < width; i++) {
-						visited[y + i + CHUNK_SIZE * (z + height)] = 1;
-					}
-					height++;
-				}
-				if (face % 2) {
-					create_quad(FVector(x + 1, y, z), FVector(x + 1, y, z + height), FVector(x + 1, y + width, z + height), FVector(x + 1, y + width, z), FVector(1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				} else {
-					create_quad(FVector(x, y, z), FVector(x, y + width, z), FVector(x, y + width, z + height), FVector(x, y, z + height), FVector(-1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				}
-				//new_count++;
-				y += width;
-				vPos += width;
-				if (y >= CHUNK_SIZE) {
-					y = 0;
-					z++;
-				}
-			}
-		}
-	}
-				
-				
+	
 				//if (candidates[pos]) {
 				//	if (faces[pos] & 1) {
 				//		create_quad(FVector(x, y, z), FVector(x + 1, y, z), FVector(x + 1, y + 1, z), FVector(x, y + 1, z), FVector(0.0f, 0.0f, -1.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);

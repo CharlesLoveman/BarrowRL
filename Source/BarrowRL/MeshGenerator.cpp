@@ -2,6 +2,8 @@
 
 
 #include "MeshGenerator.h"
+#include "Containers/StaticArray.h"
+#include "Containers/StaticBitArray.h"
 
 MeshGenerator::MeshGenerator()
 {
@@ -183,35 +185,85 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 	TArray<FColor> vertex_colors;
 	TArray<FProcMeshTangent> tangents;
 	TMap<FVector, int32> vertex_map;
-	for (int32 z = 0; z < CHUNK_SIZE; z++) {
-		for (int32 y = 0; y < CHUNK_SIZE; y++) {
-			for (int32 x = 0; x < CHUNK_SIZE; x++) {
-				if (cells[index(x, y, z)] == 1) {
-					if (z == 0 || cells[index(x, y, z - 1)] == 0) {
-						create_quad(FVector(x, y, z), FVector(x + 1, y, z), FVector(x + 1, y + 1, z), FVector(x, y + 1, z), FVector(0.0f, 0.0f, -1.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+	
+	TStaticBitArray<CHUNK_VOLUME> candidates;
+	TStaticArray<uint8_t, CHUNK_VOLUME> faces;
+	TStaticBitArray<CHUNK_SIZE * CHUNK_SIZE> visited;
+	
+	int32 pos = 0;
+	for (int32 z = 0; z < CHUNK_SIZE; ++z) {
+		for (int32 y = 0; y < CHUNK_SIZE; ++y) {
+			for (int32 x = 0; x < CHUNK_SIZE; ++x) {
+				if (cells[pos]) {
+					if (z == 0 || cells[pos - CHUNK_SIZE * CHUNK_SIZE] == 0) {
+						candidates[pos] = 1;
+						faces[pos] |= 1;
 					}
-					if (z == CHUNK_SIZE - 1 || cells[index(x, y, z + 1)] == 0) {
-						create_quad(FVector(x, y, z + 1), FVector(x, y + 1, z + 1), FVector(x + 1, y + 1, z + 1), FVector(x + 1, y, z + 1), FVector(0.0f, 0.0f, 1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					if (z == CHUNK_SIZE - 1 || cells[pos + CHUNK_SIZE * CHUNK_SIZE] == 0) {
+						candidates[pos] = 1;
+						faces[pos] |= 1 << 1;
 					}
-					if (x == 0 || cells[index(x - 1, y, z)] == 0) {
-						create_quad(FVector(x, y, z), FVector(x, y + 1, z), FVector(x, y + 1, z + 1), FVector(x, y, z + 1), FVector(-1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					if (y == 0 || cells[pos - CHUNK_SIZE] == 0) {
+						candidates[pos] = 1;
+						faces[pos] |= 1 << 2;
 					}
-					if (x == CHUNK_SIZE - 1 || cells[index(x + 1, y, z)] == 0) {
-						create_quad(FVector(x + 1, y, z), FVector(x + 1, y, z + 1), FVector(x + 1, y + 1, z + 1), FVector(x + 1, y + 1, z), FVector(1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					if (y == CHUNK_SIZE - 1 || cells[pos + CHUNK_SIZE] == 0) {
+						candidates[pos] = 1;
+						faces[pos] |= 1 << 3;
 					}
-					if (y == 0 || cells[index(x, y - 1, z)] == 0) {
-						create_quad(FVector(x, y, z), FVector(x, y, z + 1), FVector(x + 1, y, z + 1), FVector(x + 1, y, z), FVector(0.0f, -1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					if (x == 0 || cells[pos - 1] == 0) {
+						candidates[pos] = 1;
+						faces[pos] |= 1 << 4;
 					}
-					if (y == CHUNK_SIZE - 1 || cells[index(x, y + 1, z)] == 0) {
-						create_quad(FVector(x, y + 1, z), FVector(x + 1, y + 1, z), FVector(x + 1, y + 1, z + 1), FVector(x, y + 1, z + 1), FVector(0.0f, 1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					if (x == CHUNK_SIZE - 1 || cells[pos + 1] == 0) {
+						candidates[pos] = 1;
+						faces[pos] |= 1 << 5;
 					}
 				}
+				pos++;
+			}
+		}
+	}
+	pos = 0;
+	for (int32 z = 0; z < CHUNK_SIZE; z++) {
+		//visited ^= visited;
+		//int32 x = 0;
+		//int32 y = 0;
+		//pos = 0;
+		//while (pos < CHUNK_SIZE * CHUNK_SIZE) {
+		//}
+		for (int32 y = 0; y < CHUNK_SIZE; y++) {
+			for (int32 x = 0; x < CHUNK_SIZE; x++) {
+				//if (visited[x + (y << CHUNK_SHIFT)]) {
+				//	continue;
+				//}
+				if (candidates[pos]) {
+					if (faces[pos] & 1) {
+						create_quad(FVector(x, y, z), FVector(x + 1, y, z), FVector(x + 1, y + 1, z), FVector(x, y + 1, z), FVector(0.0f, 0.0f, -1.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					}
+					if (faces[pos] & (1 << 1)) {
+						create_quad(FVector(x, y, z + 1), FVector(x, y + 1, z + 1), FVector(x + 1, y + 1, z + 1), FVector(x + 1, y, z + 1), FVector(0.0f, 0.0f, 1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					}
+					if (faces[pos] & (1 << 2)) {
+						create_quad(FVector(x, y, z), FVector(x, y, z + 1), FVector(x + 1, y, z + 1), FVector(x + 1, y, z), FVector(0.0f, -1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					}
+					if (faces[pos] & (1 << 3)) {
+						create_quad(FVector(x, y + 1, z), FVector(x + 1, y + 1, z), FVector(x + 1, y + 1, z + 1), FVector(x, y + 1, z + 1), FVector(0.0f, 1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					}
+					if (faces[pos] & (1 << 4)) {
+						create_quad(FVector(x, y, z), FVector(x, y + 1, z), FVector(x, y + 1, z + 1), FVector(x, y, z + 1), FVector(-1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					}
+					if (faces[pos] & (1 << 5)) {
+						create_quad(FVector(x + 1, y, z), FVector(x + 1, y, z + 1), FVector(x + 1, y + 1, z + 1), FVector(x + 1, y + 1, z), FVector(1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					}
+					
+				}
+				pos++;
 			}
 		}
 	}
 	for (int i = 0; i < vertices.Num(); i++) {
 		normals[i].Normalize(EPSILON);
-		//UE_LOG(LogTemp, Display, TEXT("i: %d, vertex: %f %f %f, normal: %f %f %f, UV0: %f %f, UV1: %f %f, UV2: %f %f, UV3: %f %f, vertex_color: %d %d %d, tangent: %f %f %f"), i, vertices[i].X, vertices[i].Y, vertices[i].Z, normals[i].X, normals[i].Y, normals[i].Z, UV0[i].X, UV0[i].Y, UV1[i].X, UV1[i].Y, UV2[i].X, UV2[i].Y, UV3[i].X, UV3[i].Y, vertex_colors[i].R, vertex_colors[i].G, vertex_colors[i].B, tangents[i].TangentX.X, tangents[i].TangentX.Y, tangents[i].TangentX.Z);
 	}
 	mesh.CreateMeshSection(0, vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, false);
 }

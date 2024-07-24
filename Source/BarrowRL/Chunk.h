@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "MeshGenerator.h"
 #include "ProceduralMeshComponent.h"
 #include "Chunk.generated.h"
 
@@ -26,4 +27,6 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+private:
+	MeshGenerator mesher;
 };

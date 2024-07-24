@@ -18,5 +18,8 @@ public:
 	MeshGenerator();
 	~MeshGenerator();
 
-	void generate(TArray<uint8_t> cells, UProceduralMeshComponent &mesh);
+	void generate(TArray<uint8_t> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &uvs);
+
+private:
+    UMaterial *Material;
 };

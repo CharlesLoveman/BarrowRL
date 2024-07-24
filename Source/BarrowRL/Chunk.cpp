@@ -10,6 +10,7 @@ AChunk::AChunk()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	VisualMesh = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("MeshComponent"));
+	mesher = MeshGenerator();
 }
 
 float random(FVector2D st) {
@@ -35,7 +36,6 @@ float noise(FVector2D st) {
 void AChunk::BeginPlay()
 {
 	Super::BeginPlay();
-	MeshGenerator mesher = MeshGenerator();
 	TArray<uint8_t> cells;
 	for (int z = 0; z < CHUNK_SIZE; z++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
@@ -49,8 +49,17 @@ void AChunk::BeginPlay()
 			}
 		}
 	}
+	TArray<FColor> fgs;
+	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
+	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
+	TArray<FColor> bgs;
+	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
+	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
+	TArray<FColor> uvs;
+	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
+	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
 	const double start = FPlatformTime::Seconds();
-	mesher.generate(cells, *VisualMesh);
+	mesher.generate(cells, *VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 }
@@ -59,7 +68,6 @@ void AChunk::BeginPlay()
 void AChunk::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	MeshGenerator mesher = MeshGenerator();
 	TArray<uint8_t> cells;
 	for (int z = 0; z < CHUNK_SIZE; z++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
@@ -73,8 +81,17 @@ void AChunk::Tick(float DeltaTime)
 			}
 		}
 	}
+	TArray<FColor> fgs;
+	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
+	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
+	TArray<FColor> bgs;
+	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
+	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
+	TArray<FColor> uvs;
+	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
+	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
 	const double start = FPlatformTime::Seconds();
-	mesher.generate(cells, *VisualMesh);
+	mesher.generate(cells, *VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 

@@ -4,9 +4,15 @@
 #include "MeshGenerator.h"
 #include "Containers/StaticArray.h"
 #include "Containers/StaticBitArray.h"
+#include <cstdint>
 
 MeshGenerator::MeshGenerator()
 {
+	static ConstructorHelpers::FObjectFinder<UMaterial> MatAsset(TEXT("/Game/StaticTileMaterial.StaticTileMaterial"));
+	
+	if (MatAsset.Succeeded()) {
+		Material = MatAsset.Object;
+	}
 }
 
 MeshGenerator::~MeshGenerator()
@@ -35,24 +41,18 @@ inline int32 get_vertex_index(
 	TArray<FVector2D> &UV2,
 	TArray<FVector2D> &UV3,
 	TArray<FColor> &vertex_colors,
-	TArray<FProcMeshTangent> &tangents,
-	TMap<FVector, int32> &vertex_map
+	TArray<FProcMeshTangent> &tangents
 ) {
-	if (!vertex_map.Contains(v)) {
-		int32 vertex_index = vertices.Num();
-		vertex_map.Add(v, vertex_index);
-		vertices.Emplace(v);
-		normals.Emplace(FVector(0.0, 0.0, 0.0));
-		UV0.Emplace(uv0);
-		UV1.Emplace(uv1);
-		UV2.Emplace(uv2);
-		UV3.Emplace(uv3);
-		vertex_colors.Emplace(color);
-		tangents.Emplace(FProcMeshTangent());
-		return vertex_index;
-	} else {
-		return vertex_map[v];
-	}
+	int32 vertex_index = vertices.Num();
+	vertices.Emplace(v);
+	normals.Emplace(FVector(0.0, 0.0, 0.0));
+	UV0.Emplace(uv0);
+	UV1.Emplace(uv1);
+	UV2.Emplace(uv2);
+	UV3.Emplace(uv3);
+	vertex_colors.Emplace(color);
+	tangents.Emplace(FProcMeshTangent());
+	return vertex_index;
 }
 
 
@@ -91,13 +91,12 @@ inline void quad(
 	TArray<FVector2D> &UV2,
 	TArray<FVector2D> &UV3,
 	TArray<FColor> &vertex_colors,
-	TArray<FProcMeshTangent> &tangents,
-	TMap<FVector, int32> &vertex_map
+	TArray<FProcMeshTangent> &tangents
 ) {
-	const int32 v1_index = get_vertex_index(v1, v1_UV0, v1_UV1, v1_UV2, v1_UV3, v1_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-	const int32 v2_index = get_vertex_index(v2, v2_UV0, v2_UV1, v2_UV2, v2_UV3, v2_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-	const int32 v3_index = get_vertex_index(v3, v3_UV0, v3_UV1, v3_UV2, v3_UV3, v3_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-	const int32 v4_index = get_vertex_index(v4, v4_UV0, v4_UV1, v4_UV2, v4_UV3, v4_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+	const int32 v1_index = get_vertex_index(v1, v1_UV0, v1_UV1, v1_UV2, v1_UV3, v1_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
+	const int32 v2_index = get_vertex_index(v2, v2_UV0, v2_UV1, v2_UV2, v2_UV3, v2_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
+	const int32 v3_index = get_vertex_index(v3, v3_UV0, v3_UV1, v3_UV2, v3_UV3, v3_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
+	const int32 v4_index = get_vertex_index(v4, v4_UV0, v4_UV1, v4_UV2, v4_UV3, v4_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
 	triangles.Add(v1_index);
 	triangles.Add(v2_index);
 	triangles.Add(v3_index);
@@ -122,6 +121,10 @@ inline void create_quad(
 	const FVector &v4, 
 	const FVector &normal,
 	const FProcMeshTangent tangent,
+	const FVector2D &uv01,
+	const FVector2D &uv02,
+	const FVector2D &uv03,
+	const FVector2D &uv04,
 	TArray<FVector> &vertices,
 	TArray<int32> &triangles,
 	TArray<FVector> &normals,
@@ -130,8 +133,7 @@ inline void create_quad(
 	TArray<FVector2D> &UV2,
 	TArray<FVector2D> &UV3,
 	TArray<FColor> &vertex_colors,
-	TArray<FProcMeshTangent> &tangents,
-	TMap<FVector, int32> &vertex_map
+	TArray<FProcMeshTangent> &tangents
 ) {
 	quad(
 		100.0 * v1,
@@ -140,19 +142,19 @@ inline void create_quad(
 		100.0 * v4,
 		normal,
 		tangent,
+		uv01,
 		FVector2D(0.0, 0.0),
 		FVector2D(0.0, 0.0),
 		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 1.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(1.0, 1.0),
+		uv02,
 		FVector2D(0.0, 0.0),
 		FVector2D(0.0, 0.0),
 		FVector2D(0.0, 0.0),
-		FVector2D(1.0, 0.0),
+		uv03,
+		FVector2D(0.0, 0.0),
+		FVector2D(0.0, 0.0),
+		FVector2D(0.0, 0.0),
+		uv04,
 		FVector2D(0.0, 0.0),
 		FVector2D(0.0, 0.0),
 		FVector2D(0.0, 0.0),
@@ -168,13 +170,202 @@ inline void create_quad(
 		UV2,
 		UV3,
 		vertex_colors,
-		tangents,
-		vertex_map
+		tangents
 	);
 }
 
+struct Quad {
+	int32 x;
+	int32 y;
+	int32 z;
+	int32 width;
+	int32 height;
+	int32 face;
+	int32 size;
+	int32 v1;
+	int32 v2;
+	int32 v3;
+	int32 v4;
+	Quad(int32 _v1, int32 _v2, int32 _v3, int32 _v4, int32 _x, int32 _y, int32 _z, int32 w, int32 h, int32 f) : x(_x), y(_y), z(_z), width(w), height(h), face(f), size(fmax(w, h)), v1(_v1), v2(_v2), v3(_v3), v4(_v4) {}
+};
 
-void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &mesh) {
+struct less_than_size
+{
+    inline bool operator() (const Quad& q1, const Quad& q2)
+    {
+        return q1.size > q2.size || (q1.size == q2.size && q1.width > q2.width) || (q1.size == q2.size && q1.width == q2.width && q1.height > q2.height);
+    }
+};
+
+struct QuadTree {
+	struct QuadTree *right;
+	struct QuadTree *down;
+	struct Quad *quad;
+	int32 x;
+	int32 y;
+	int32 width;
+	int32 height;
+	int32 depth;
+
+public:
+	QuadTree(int32 x_pos, int32 y_pos, int32 w, int32 h): right(nullptr), down(nullptr), quad(nullptr), x(x_pos), y(y_pos), width(w), height(h), depth(0) {}
+	
+	~QuadTree() {
+		UE_LOG(LogTemp, Display, TEXT("deleted quadtree %d %d %d %d"), x, y, width, height);
+		delete right;
+		delete down;
+	}
+
+	void fit(const std::vector<Quad> &blocks) {
+		int32 count = 0;
+		for (auto block : blocks) {
+			UE_LOG(LogTemp, Display, TEXT("adding block: %d, width: %d, height: %d"), count++, block.width, block.height);
+			add(block);
+		}
+	}
+
+	void update_tex(
+		int32 tex_width,
+		FColor *fg_tex,
+		FColor *bg_tex,
+		FColor *uv_tex,
+		TArray<FVector2D> uv,
+		const TArray<uint8_t> &cells,
+		TArray<FColor> &fgs,
+		TArray<FColor> &bgs,
+		TArray<FColor> uvs
+	) {
+		if (!quad) {
+			if (right) {
+				right->update_tex(tex_width, fg_tex, bg_tex, uv_tex, uv, cells, fgs, bgs, uvs);
+			}
+			if (down) {
+				down->update_tex(tex_width, fg_tex, bg_tex, uv_tex, uv, cells, fgs, bgs, uvs);
+			}
+			return;
+		}
+		uv[quad->v1] = FVector2D(x, y);
+		uv[quad->v2] = FVector2D(x + width, y);
+		uv[quad->v3] = FVector2D(x + width, y + height);
+		uv[quad->v4] = FVector2D(x, y + height);
+		switch (quad->face) {
+		case 0:
+		case 1:
+			for (int i = 0; i < quad->height; i++) {
+				for (int j = 0; j < quad->width; j++) {
+					fg_tex[x + j + (y + i) * tex_width] = fgs[cells[index(quad->x + j, quad->y + i, quad->z)]];
+					bg_tex[x + j + (y + i) * tex_width] = bgs[cells[index(quad->x + j, quad->y + i, quad->z)]];
+					uv_tex[x + j + (y + i) * tex_width] = uvs[cells[index(quad->x + j, quad->y + i, quad->z)]];
+				}
+			}
+			break;
+		case 2:
+		case 3:
+			for (int i = 0; i < quad->height; i++) {
+				for (int j = 0; j < quad->width; j++) {
+					fg_tex[x + j + (y + i) * tex_width] = fgs[cells[index(quad->x + j, quad->y, quad->z + i)]];
+					bg_tex[x + j + (y + i) * tex_width] = bgs[cells[index(quad->x + j, quad->y, quad->z + i)]];
+					uv_tex[x + j + (y + i) * tex_width] = uvs[cells[index(quad->x + j, quad->y, quad->z + i)]];
+				}
+			}
+			break;
+		default:
+			for (int i = 0; i < quad->height; i++) {
+				for (int j = 0; j < quad->width; j++) {
+					fg_tex[x + j + (y + i) * tex_width] = fgs[cells[index(quad->x, quad->y + j, quad->z + i)]];
+					bg_tex[x + j + (y + i) * tex_width] = bgs[cells[index(quad->x, quad->y + j, quad->z + i)]];
+					uv_tex[x + j + (y + i) * tex_width] = uvs[cells[index(quad->x, quad->y + j, quad->z + i)]];
+				}
+			}
+			break;
+		}
+	}
+
+private:
+	bool add(Quad &block) {
+		//UE_LOG(LogTemp, Display, TEXT("start of add"));
+		if (add_node(block)) {
+			UE_LOG(LogTemp, Display, TEXT("in add, add_node succeeded"));
+			return true;
+		}
+		if (block.height > height || width >= height + block.height) {
+			UE_LOG(LogTemp, Display, TEXT("in add, growing down"));
+			QuadTree *new_right = new QuadTree(0, 0, width, height);
+			new_right->right = right;
+			new_right->down = down;
+			right = new_right;
+			down = new QuadTree(0, height, fmax(width, block.width), block.height);
+			height += block.height;
+			width = fmax(width, block.width);
+			UE_LOG(LogTemp, Display, TEXT("size after growth: %d %d"), width, height);
+			return down->add_node(block);
+		} else {
+			UE_LOG(LogTemp, Display, TEXT("in add, growing right"));
+			QuadTree *new_down = new QuadTree(0, 0, width, height);
+			new_down->right = right;
+			new_down->down = down;
+			down = new_down;
+			right = new QuadTree(width, 0, block.width, fmax(height, block.height));
+			width += block.width;
+			height = fmax(height, block.height);
+			UE_LOG(LogTemp, Display, TEXT("size after growth: %d %d"), width, height);
+			return right->add_node(block);
+		}
+        }
+
+	int32 add_node(Quad &block) {
+		UE_LOG(LogTemp, Display, TEXT("add block width: %d height: %d to node x: %d, y: %d, width: %d, height: %d"), block.width, block.height, x, y, width, height);
+		if (quad || block.width > width || block.height > height) {
+			return 0;
+		}
+		if (right) {
+			UE_LOG(LogTemp, Display, TEXT("adding to child"));
+			if (right->depth < down->depth) {
+				if (!right->quad && block.width <= right->width && block.height <= right->height) {
+					int32 dir = right->add_node(block);
+					if (dir = 1) {
+						QuadTree *nright = node->right
+						return nright;
+					}
+				}
+				if (!node && !down->quad && block.width <= down->width && block.height <= down->height) {
+					node = down->add_node(block);
+					if (node) {
+					}
+				}
+				return node;
+			} else {
+				QuadTree *node = nullptr;
+				if (!node && !down->quad && block.width <= down->width && block.height <= down->height) {
+					node = down->add_node(block);
+				}
+				if (!right->quad && block.width <= right->width && block.height <= right->height) {
+					return right->add_node(block);
+				}
+				return node;
+			}
+		}
+		UE_LOG(LogTemp, Display, TEXT("adding to self"));
+		if (block.width < width) {
+			UE_LOG(LogTemp, Display, TEXT("split width"));
+			right = new QuadTree(x + block.width, y, width - block.width, height);
+			down = new QuadTree(x, y, block.width, height);
+			depth = 1;
+			return down->add_node(block);
+		}
+		if (block.height < height) {
+			UE_LOG(LogTemp, Display, TEXT("split height"));
+			right = new QuadTree(x, y, width, block.height); 
+			down = new QuadTree(x, y + block.height, width, height - block.height);
+			depth = 1;
+			return right->add_node(block);
+		}
+		quad = &block;
+		return true;
+	}
+};
+
+void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &texUV) {
 	TArray<FVector> vertices;
 	TArray<int32> triangles;
 	TArray<FVector> normals;
@@ -184,13 +375,14 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 	TArray<FVector2D> UV3;
 	TArray<FColor> vertex_colors;
 	TArray<FProcMeshTangent> tangents;
-	TMap<FVector, int32> vertex_map;
 	TStaticArray<TStaticBitArray<CHUNK_VOLUME>, 6> faces_array;
 	TStaticBitArray<CHUNK_SIZE * CHUNK_SIZE> visited;
+	std::vector<Quad> quads;
 	
 	const double start = FPlatformTime::Seconds();
 	int32 pos = 0;
 	//int32 old_count = 0;
+	uint8_t tex_count = 0;
 	for (int32 z = 0; z < CHUNK_SIZE; ++z) {
 		for (int32 y = 0; y < CHUNK_SIZE; ++y) {
 			for (int32 x = 0; x < CHUNK_SIZE; ++x) {
@@ -220,7 +412,7 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 	}
 	pos = 0;
 	double end = FPlatformTime::Seconds();
-	UE_LOG(LogTemp, Display, TEXT("computed faces in %f seconds"), end - start);
+	//UE_LOG(LogTemp, Display, TEXT("computed faces in %f seconds"), end - start);
 	//int32 new_count = 0;
 	for (int face = 0; face < 6; face++) {
 		TStaticBitArray<CHUNK_VOLUME> &faces = faces_array[face];
@@ -265,27 +457,152 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 				}
 				switch (face) {
 				case 0:
-					create_quad(FVector(x, y, z), FVector(x + width, y, z), FVector(x + width, y + height, z), FVector(x, y + height, z), FVector(0.0f, 0.0f, -1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, x, y, z, width, height, face));
+					create_quad(
+						FVector(x, y, z),
+						FVector(x + width, y, z),
+						FVector(x + width, y + height, z),
+						FVector(x, y + height, z),
+						FVector(0.0f, 0.0f, -1.0f),
+						FProcMeshTangent(-1.0, 0.0, 0.0),
+						FVector2D(0.0, 0.0),
+						FVector2D(width, 0.0),
+						FVector2D(width, height),
+						FVector2D(0.0, height),
+						vertices,
+						triangles,
+						normals,
+						UV0,
+						UV1,
+						UV2,
+						UV3,
+						vertex_colors,
+						tangents
+					);
 					break;
 				case 1:
-					create_quad(FVector(x, y, z + 1), FVector(x, y + height, z + 1), FVector(x + width, y + height, z + 1), FVector(x + width, y, z + 1), FVector(0.0f, 0.0f, 1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, x, y, z, width, height, face));
+					create_quad(
+						FVector(x, y, z + 1),
+						FVector(x, y + height, z + 1),
+						FVector(x + width, y + height, z + 1),
+						FVector(x + width, y, z + 1),
+						FVector(0.0f, 0.0f, 1.0f),
+						FProcMeshTangent(-1.0, 0.0, 0.0),
+						FVector2D(0.0, 0.0),
+						FVector2D(0.0, height),
+						FVector2D(width, height),
+						FVector2D(width, 0.0),
+						vertices,
+						triangles,
+						normals,
+						UV0,
+						UV1,
+						UV2,
+						UV3,
+						vertex_colors,
+						tangents
+					);
 					break;
 				case 2:
-					create_quad(FVector(x, z, y), FVector(x, z, y + height), FVector(x + width, z, y + height), FVector(x + width, z, y), FVector(0.0f, -1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, x, z, y, width, height, face));
+					create_quad(
+						FVector(x, z, y),
+						FVector(x, z, y + height),
+						FVector(x + width, z, y + height),
+						FVector(x + width, z, y),
+						FVector(0.0f, -1.0f, 0.0f),
+						FProcMeshTangent(1.0, 0.0, 0.0),
+						FVector2D(0.0, 0.0),
+						FVector2D(0.0, height),
+						FVector2D(width, height),
+						FVector2D(width, 0.0),
+						vertices,
+						triangles,
+						normals,
+						UV0,
+						UV1,
+						UV2,
+						UV3,
+						vertex_colors,
+						tangents
+					);
 					break;
 				case 3:
-					create_quad(FVector(x, z + 1, y), FVector(x + width, z + 1, y), FVector(x + width, z + 1, y + height), FVector(x, z + 1, y + height), FVector(0.0f, 1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, x, z, y, width, height, face));
+					create_quad(
+						FVector(x, z + 1, y),
+						FVector(x + width, z + 1, y),
+						FVector(x + width, z + 1, y + height),
+						FVector(x, z + 1, y + height),
+						FVector(0.0f, 1.0f, 0.0f),
+						FProcMeshTangent(1.0, 0.0, 0.0),
+						FVector2D(0.0, 0.0),
+						FVector2D(width, 0.0),
+						FVector2D(width, height),
+						FVector2D(0.0, height),
+						vertices,
+						triangles,
+						normals,
+						UV0,
+						UV1,
+						UV2,
+						UV3,
+						vertex_colors,
+						tangents
+					);
 					break;
 				case 4:
-					create_quad(FVector(z, x, y), FVector(z, x + width, y), FVector(z, x + width, y + height), FVector(z, x, y + height), FVector(-1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, z, x, y, width, height, face));
+					create_quad(
+						FVector(z, x, y),
+						FVector(z, x + width, y),
+						FVector(z, x + width, y + height),
+						FVector(z, x, y + height),
+						FVector(-1.0f, 0.0f, 0.0f),
+						FProcMeshTangent(0.0, 0.0, 0.0),
+						FVector2D(0.0, 0.0),
+						FVector2D(width, 0.0),
+						FVector2D(width, height),
+						FVector2D(0.0, height),
+						vertices,
+						triangles,
+						normals,
+						UV0,
+						UV1,
+						UV2,
+						UV3,
+						vertex_colors,
+						tangents
+					);
 					break;
 				case 5:
-					create_quad(FVector(z + 1, x, y), FVector(z + 1, x, y + height), FVector(z + 1, x + width, y + height), FVector(z + 1, x + width, y), FVector(1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, z, x, y, width, height, face));
+					create_quad(
+						FVector(z + 1, x, y),
+						FVector(z + 1, x, y + height),
+						FVector(z + 1, x + width, y + height),
+						FVector(z + 1, x + width, y),
+						FVector(1.0f, 0.0f, 0.0f),
+						FProcMeshTangent(0.0, 0.0, 0.0),
+						FVector2D(0.0, 0.0),
+						FVector2D(0.0, height),
+						FVector2D(width, height),
+						FVector2D(width, 0.0),
+						vertices,
+						triangles,
+						normals,
+						UV0,
+						UV1,
+						UV2,
+						UV3,
+						vertex_colors,
+						tangents
+					);
 					break;
 				default:
 					break;
 				}
-				//new_count++;
 				x += width;
 				vPos += width;
 				if (x >= CHUNK_SIZE) {
@@ -296,33 +613,31 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 		}
 	}
 	
-				//if (candidates[pos]) {
-				//	if (faces[pos] & 1) {
-				//		create_quad(FVector(x, y, z), FVector(x + 1, y, z), FVector(x + 1, y + 1, z), FVector(x, y + 1, z), FVector(0.0f, 0.0f, -1.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				//	}
-				//	if (faces[pos] & (1 << 1)) {
-				//		create_quad(FVector(x, y, z + 1), FVector(x, y + 1, z + 1), FVector(x + 1, y + 1, z + 1), FVector(x + 1, y, z + 1), FVector(0.0f, 0.0f, 1.0f), FProcMeshTangent(-1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				//	}
-				//	if (faces[pos] & (1 << 2)) {
-				//		create_quad(FVector(x, y, z), FVector(x, y, z + 1), FVector(x + 1, y, z + 1), FVector(x + 1, y, z), FVector(0.0f, -1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				//	}
-				//	if (faces[pos] & (1 << 3)) {
-				//		create_quad(FVector(x, y + 1, z), FVector(x + 1, y + 1, z), FVector(x + 1, y + 1, z + 1), FVector(x, y + 1, z + 1), FVector(0.0f, 1.0f, 0.0f), FProcMeshTangent(1.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				//	}
-				//	if (faces[pos] & (1 << 4)) {
-				//		create_quad(FVector(x, y, z), FVector(x, y + 1, z), FVector(x, y + 1, z + 1), FVector(x, y, z + 1), FVector(-1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				//	}
-				//	if (faces[pos] & (1 << 5)) {
-				//		create_quad(FVector(x + 1, y, z), FVector(x + 1, y, z + 1), FVector(x + 1, y + 1, z + 1), FVector(x + 1, y + 1, z), FVector(1.0f, 0.0f, 0.0f), FProcMeshTangent(0.0, 0.0, 0.0), vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, vertex_map);
-				//	}
-				//	
-				//}
-			//}
-		//}
-	//}
 	for (int i = 0; i < vertices.Num(); i++) {
 		normals[i].Normalize(EPSILON);
 	}
+	std::sort(quads.begin(), quads.end(), less_than_size());
+	struct QuadTree *tree = new QuadTree(0, 0, 0, 0);
+	tree->fit(quads);
+	UTexture2D * uv_tex = UTexture2D::CreateTransient(tree->width, tree->height, EPixelFormat::PF_B8G8R8A8);
+	UTexture2D * fg_tex = UTexture2D::CreateTransient(tree->width, tree->height, EPixelFormat::PF_B8G8R8A8);
+	UTexture2D * bg_tex = UTexture2D::CreateTransient(tree->width, tree->height, EPixelFormat::PF_B8G8R8A8);
+	void * uv_tex_data = uv_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
+	void * fg_tex_data = fg_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
+	void * bg_tex_data = bg_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
+	tree->update_tex(tree->width, (FColor*) fg_tex_data, (FColor*) bg_tex_data, (FColor*) uv_tex_data, UV1, cells, fgs, bgs, texUV);
+	bg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
+	fg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
+	uv_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
+	uv_tex->UpdateResource();
+	fg_tex->UpdateResource();
+	bg_tex->UpdateResource();
+	delete tree;
 	//UE_LOG(LogTemp, Display, TEXT("old count: %d, new count: %d, saved quads: %d"), old_count, new_count, old_count - new_count);
 	mesh.CreateMeshSection(0, vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, false);
+	UMaterialInstanceDynamic *mat = UMaterialInstanceDynamic::Create(Material, &mesh);
+	mat->SetTextureParameterValue(TEXT("Foreground"), fg_tex);
+	mat->SetTextureParameterValue(TEXT("Background"), bg_tex);
+	mat->SetTextureParameterValue(TEXT("TexMap"), uv_tex);
+	mesh.SetMaterial(0, mat);
 }

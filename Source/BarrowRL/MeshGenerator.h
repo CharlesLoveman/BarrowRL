@@ -3,23 +3,42 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
 #include "ProceduralMeshComponent.h"
-#include "stdint.h"
+#include "MeshGenerator.generated.h"
 
 const uint32_t CHUNK_SIZE = 32;
 constexpr uint32_t CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
-/**
- * 
- */
-class BARROWRL_API MeshGenerator
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+class BARROWRL_API UMeshGenerator : public UActorComponent
 {
-public:
-	MeshGenerator();
-	~MeshGenerator();
+	GENERATED_BODY()
 
-	void generate(TArray<uint8_t> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &uvs);
+public:	
+	// Sets default values for this component's properties
+	UMeshGenerator();
+
+protected:
+	// Called when the game starts
+	virtual void BeginPlay() override;
+
+public:	
+	// Called every frame
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	void generate(TArray<uint8> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &uvs);
 
 private:
+    UPROPERTY()
     UMaterial *Material;
+
+    UPROPERTY()
+    UTexture2D *uv_tex;
+
+    UPROPERTY()
+    UTexture2D *fg_tex;
+
+    UPROPERTY()
+    UTexture2D *bg_tex;
 };

@@ -17,7 +17,11 @@ public:
 	// Sets default values for this actor's properties
 	AChunk();
 
+	UPROPERTY(VisibleAnywhere)
 	UProceduralMeshComponent* VisualMesh;
+
+	UPROPERTY(VisibleAnywhere)
+	UMeshGenerator *Mesher;
 
 protected:
 	// Called when the game starts or when spawned
@@ -28,5 +32,15 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
-	MeshGenerator mesher;
+	UPROPERTY()
+	TArray<uint8> cells;
+
+	UPROPERTY()
+	TArray<FColor> fgs;
+
+	UPROPERTY()
+	TArray<FColor> bgs;
+
+	UPROPERTY()
+	TArray<FColor> uvs;
 };

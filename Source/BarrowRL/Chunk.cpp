@@ -10,7 +10,13 @@ AChunk::AChunk()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	VisualMesh = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("MeshComponent"));
-	mesher = MeshGenerator();
+	Mesher = CreateDefaultSubobject<UMeshGenerator>(TEXT("UMeshGenerator"));
+	fgs.Add(FColor(255, 255, 255, 255));
+	fgs.Add(FColor(255, 255, 255, 255));
+	bgs.Add(FColor(0, 0, 0, 255));
+	bgs.Add(FColor(50, 50, 50, 255));
+	uvs.Add(FColor(0, 0, 0, 0));
+	uvs.Add(FColor(30, 0, 39, 9));
 }
 
 float random(FVector2D st) {
@@ -36,7 +42,6 @@ float noise(FVector2D st) {
 void AChunk::BeginPlay()
 {
 	Super::BeginPlay();
-	TArray<uint8_t> cells;
 	for (int z = 0; z < CHUNK_SIZE; z++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
 			for (int x = 0; x < CHUNK_SIZE; x++) {
@@ -49,17 +54,9 @@ void AChunk::BeginPlay()
 			}
 		}
 	}
-	TArray<FColor> fgs;
-	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
-	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
-	TArray<FColor> bgs;
-	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
-	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
-	TArray<FColor> uvs;
-	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
-	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
+
 	const double start = FPlatformTime::Seconds();
-	mesher.generate(cells, *VisualMesh, fgs, bgs, uvs);
+	Mesher->generate(cells, *VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 }
@@ -68,30 +65,22 @@ void AChunk::BeginPlay()
 void AChunk::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	TArray<uint8_t> cells;
+	int32 count = 0;
 	for (int z = 0; z < CHUNK_SIZE; z++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
 			for (int x = 0; x < CHUNK_SIZE; x++) {
 				//cells.Add(FMath::RandRange(0, 1));
 				if (((float) z) / CHUNK_SIZE < noise(2.0 * FVector2D(((float) x) / CHUNK_SIZE, ((float) y) / CHUNK_SIZE) + FVector2D(FPlatformTime::Seconds(), (FPlatformTime::Seconds())))) {
-					cells.Add(1);
+					cells[count] = 1;
 				} else {
-					cells.Add(0);
+					cells[count] = 0;
 				}
+				count++;
 			}
 		}
 	}
-	TArray<FColor> fgs;
-	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
-	fgs.Add(FColor(1.0, 1.0, 1.0, 1.0));
-	TArray<FColor> bgs;
-	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
-	bgs.Add(FColor(0.0, 0.0, 0.0, 1.0));
-	TArray<FColor> uvs;
-	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
-	uvs.Add(FColor(0.0, 0.0, 1.0, 1.0));
 	const double start = FPlatformTime::Seconds();
-	mesher.generate(cells, *VisualMesh, fgs, bgs, uvs);
+	Mesher->generate(cells, *VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 

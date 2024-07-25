@@ -30,7 +30,7 @@ AMapAnchor::AMapAnchor()
 void AMapAnchor::BeginPlay()
 {
 	Super::BeginPlay();
-	MeshGenerator mesher = MeshGenerator();
+	UMeshGenerator mesher = UMeshGenerator();
 	TArray<uint8_t> cells;
 	for (int i = 0; i < 32 * 32 * 32; i++) {
 		cells.Add(FMath::RandRange(0, 1));

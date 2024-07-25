@@ -6,8 +6,13 @@
 #include "Containers/StaticBitArray.h"
 #include <cstdint>
 
-MeshGenerator::MeshGenerator()
+// Sets default values for this component's properties
+UMeshGenerator::UMeshGenerator()
 {
+	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
+	// off to improve performance if you don't need them.
+	PrimaryComponentTick.bCanEverTick = false;
+
 	static ConstructorHelpers::FObjectFinder<UMaterial> MatAsset(TEXT("/Game/StaticTileMaterial.StaticTileMaterial"));
 	
 	if (MatAsset.Succeeded()) {
@@ -15,8 +20,23 @@ MeshGenerator::MeshGenerator()
 	}
 }
 
-MeshGenerator::~MeshGenerator()
+
+// Called when the game starts
+void UMeshGenerator::BeginPlay()
 {
+	Super::BeginPlay();
+
+	// ...
+	
+}
+
+
+// Called every frame
+void UMeshGenerator::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// ...
 }
 
 const int32 CHUNK_SHIFT = 5;
@@ -186,7 +206,10 @@ struct Quad {
 	int32 v2;
 	int32 v3;
 	int32 v4;
-	Quad(int32 _v1, int32 _v2, int32 _v3, int32 _v4, int32 _x, int32 _y, int32 _z, int32 w, int32 h, int32 f) : x(_x), y(_y), z(_z), width(w), height(h), face(f), size(fmax(w, h)), v1(_v1), v2(_v2), v3(_v3), v4(_v4) {}
+	int32 tex_x;
+	int32 tex_y;
+	int32 tile_id;
+	Quad(int32 _v1, int32 _v2, int32 _v3, int32 _v4, int32 _x, int32 _y, int32 _z, int32 w, int32 h, int32 f) : x(_x), y(_y), z(_z), width(w), height(h), face(f), size(fmax(w, h)), v1(_v1), v2(_v2), v3(_v3), v4(_v4), tex_x(0), tex_y(0), tile_id(0) {}
 };
 
 struct less_than_size
@@ -198,174 +221,96 @@ struct less_than_size
 };
 
 struct QuadTree {
-	struct QuadTree *right;
-	struct QuadTree *down;
-	struct Quad *quad;
-	int32 x;
-	int32 y;
-	int32 width;
-	int32 height;
-	int32 depth;
+    int32 rows;
+    int32 cols;
+    int32 width;
+    int32 height;
 
 public:
-	QuadTree(int32 x_pos, int32 y_pos, int32 w, int32 h): right(nullptr), down(nullptr), quad(nullptr), x(x_pos), y(y_pos), width(w), height(h), depth(0) {}
-	
-	~QuadTree() {
-		UE_LOG(LogTemp, Display, TEXT("deleted quadtree %d %d %d %d"), x, y, width, height);
-		delete right;
-		delete down;
-	}
-
-	void fit(const std::vector<Quad> &blocks) {
+	void fit(std::vector<Quad> &blocks) {
 		int32 count = 0;
-		for (auto block : blocks) {
-			UE_LOG(LogTemp, Display, TEXT("adding block: %d, width: %d, height: %d"), count++, block.width, block.height);
-			add(block);
+		int32 x = 0;
+		int32 y = 0;
+		int32 prev_height = 0;
+		for (int32 i = 0; i < blocks.size(); i++) {
+			if (blocks[i].height > prev_height || x + blocks[i].width > CHUNK_SIZE) {
+				x = 0;
+				y += prev_height;
+				prev_height = blocks[i].height;
+			}
+			if (y + prev_height > CHUNK_SIZE) {
+				x = 0;
+				y = 0;
+				prev_height = blocks[i].height;
+				count++;
+			}
+			blocks[i].tex_x = x;
+			blocks[i].tex_y = y;
+			blocks[i].tile_id = count;
+			x += blocks[i].width;
 		}
+		count += 1;
+		rows = floor(sqrt(count)); 
+		cols = ceil(((float) count) / rows);
+		height = CHUNK_SIZE * rows;
+		width = CHUNK_SIZE * cols;
 	}
 
 	void update_tex(
-		int32 tex_width,
+		const std::vector<Quad> &blocks,
 		FColor *fg_tex,
 		FColor *bg_tex,
 		FColor *uv_tex,
 		TArray<FVector2D> uv,
-		const TArray<uint8_t> &cells,
+		const TArray<uint8> &cells,
 		TArray<FColor> &fgs,
 		TArray<FColor> &bgs,
-		TArray<FColor> uvs
+		TArray<FColor> &uvs
 	) {
-		if (!quad) {
-			if (right) {
-				right->update_tex(tex_width, fg_tex, bg_tex, uv_tex, uv, cells, fgs, bgs, uvs);
-			}
-			if (down) {
-				down->update_tex(tex_width, fg_tex, bg_tex, uv_tex, uv, cells, fgs, bgs, uvs);
-			}
-			return;
-		}
-		uv[quad->v1] = FVector2D(x, y);
-		uv[quad->v2] = FVector2D(x + width, y);
-		uv[quad->v3] = FVector2D(x + width, y + height);
-		uv[quad->v4] = FVector2D(x, y + height);
-		switch (quad->face) {
-		case 0:
-		case 1:
-			for (int i = 0; i < quad->height; i++) {
-				for (int j = 0; j < quad->width; j++) {
-					fg_tex[x + j + (y + i) * tex_width] = fgs[cells[index(quad->x + j, quad->y + i, quad->z)]];
-					bg_tex[x + j + (y + i) * tex_width] = bgs[cells[index(quad->x + j, quad->y + i, quad->z)]];
-					uv_tex[x + j + (y + i) * tex_width] = uvs[cells[index(quad->x + j, quad->y + i, quad->z)]];
-				}
-			}
-			break;
-		case 2:
-		case 3:
-			for (int i = 0; i < quad->height; i++) {
-				for (int j = 0; j < quad->width; j++) {
-					fg_tex[x + j + (y + i) * tex_width] = fgs[cells[index(quad->x + j, quad->y, quad->z + i)]];
-					bg_tex[x + j + (y + i) * tex_width] = bgs[cells[index(quad->x + j, quad->y, quad->z + i)]];
-					uv_tex[x + j + (y + i) * tex_width] = uvs[cells[index(quad->x + j, quad->y, quad->z + i)]];
-				}
-			}
-			break;
-		default:
-			for (int i = 0; i < quad->height; i++) {
-				for (int j = 0; j < quad->width; j++) {
-					fg_tex[x + j + (y + i) * tex_width] = fgs[cells[index(quad->x, quad->y + j, quad->z + i)]];
-					bg_tex[x + j + (y + i) * tex_width] = bgs[cells[index(quad->x, quad->y + j, quad->z + i)]];
-					uv_tex[x + j + (y + i) * tex_width] = uvs[cells[index(quad->x, quad->y + j, quad->z + i)]];
-				}
-			}
-			break;
-		}
-	}
-
-private:
-	bool add(Quad &block) {
-		//UE_LOG(LogTemp, Display, TEXT("start of add"));
-		if (add_node(block)) {
-			UE_LOG(LogTemp, Display, TEXT("in add, add_node succeeded"));
-			return true;
-		}
-		if (block.height > height || width >= height + block.height) {
-			UE_LOG(LogTemp, Display, TEXT("in add, growing down"));
-			QuadTree *new_right = new QuadTree(0, 0, width, height);
-			new_right->right = right;
-			new_right->down = down;
-			right = new_right;
-			down = new QuadTree(0, height, fmax(width, block.width), block.height);
-			height += block.height;
-			width = fmax(width, block.width);
-			UE_LOG(LogTemp, Display, TEXT("size after growth: %d %d"), width, height);
-			return down->add_node(block);
-		} else {
-			UE_LOG(LogTemp, Display, TEXT("in add, growing right"));
-			QuadTree *new_down = new QuadTree(0, 0, width, height);
-			new_down->right = right;
-			new_down->down = down;
-			down = new_down;
-			right = new QuadTree(width, 0, block.width, fmax(height, block.height));
-			width += block.width;
-			height = fmax(height, block.height);
-			UE_LOG(LogTemp, Display, TEXT("size after growth: %d %d"), width, height);
-			return right->add_node(block);
-		}
-        }
-
-	int32 add_node(Quad &block) {
-		UE_LOG(LogTemp, Display, TEXT("add block width: %d height: %d to node x: %d, y: %d, width: %d, height: %d"), block.width, block.height, x, y, width, height);
-		if (quad || block.width > width || block.height > height) {
-			return 0;
-		}
-		if (right) {
-			UE_LOG(LogTemp, Display, TEXT("adding to child"));
-			if (right->depth < down->depth) {
-				if (!right->quad && block.width <= right->width && block.height <= right->height) {
-					int32 dir = right->add_node(block);
-					if (dir = 1) {
-						QuadTree *nright = node->right
-						return nright;
+		for (auto quad : blocks) {
+			int32 x_offset = (quad.tile_id % cols) * CHUNK_SIZE;
+			int32 y_offset = (quad.tile_id / cols) * CHUNK_SIZE;
+			uv[quad.v1] = FVector2D(x_offset + quad.tex_x, y_offset + quad.tex_y) / FVector2D(width, height);
+			uv[quad.v2] = FVector2D(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y) / FVector2D(width, height);
+			uv[quad.v3] = FVector2D(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y + quad.height) / FVector2D(width, height);
+			uv[quad.v4] = FVector2D(x_offset + quad.tex_x, y_offset + quad.tex_y + quad.height) / FVector2D(width, height);
+			switch (quad.face) {
+			case 0:
+			case 1:
+				for (int i = 0; i < quad.height; i++) {
+					for (int j = 0; j < quad.width; j++) {
+						fg_tex[(x_offset + quad.tex_x + j) + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x + j, quad.y + i, quad.z)]];
+						bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x + j, quad.y + i, quad.z)]];
+						uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x + j, quad.y + i, quad.z)]];
 					}
 				}
-				if (!node && !down->quad && block.width <= down->width && block.height <= down->height) {
-					node = down->add_node(block);
-					if (node) {
+				break;
+			case 2:
+			case 3:
+				for (int i = 0; i < quad.height; i++) {
+					for (int j = 0; j < quad.width; j++) {
+						fg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x + j, quad.y, quad.z + i)]];
+						bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x + j, quad.y, quad.z + i)]];
+						uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x + j, quad.y, quad.z + i)]];
 					}
 				}
-				return node;
-			} else {
-				QuadTree *node = nullptr;
-				if (!node && !down->quad && block.width <= down->width && block.height <= down->height) {
-					node = down->add_node(block);
+				break;
+			default:
+				for (int i = 0; i < quad.height; i++) {
+					for (int j = 0; j < quad.width; j++) {
+						fg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x, quad.y + j, quad.z + i)]];
+						bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x, quad.y + j, quad.z + i)]];
+						uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x, quad.y + j, quad.z + i)]];
+					}
 				}
-				if (!right->quad && block.width <= right->width && block.height <= right->height) {
-					return right->add_node(block);
-				}
-				return node;
+				break;
 			}
 		}
-		UE_LOG(LogTemp, Display, TEXT("adding to self"));
-		if (block.width < width) {
-			UE_LOG(LogTemp, Display, TEXT("split width"));
-			right = new QuadTree(x + block.width, y, width - block.width, height);
-			down = new QuadTree(x, y, block.width, height);
-			depth = 1;
-			return down->add_node(block);
-		}
-		if (block.height < height) {
-			UE_LOG(LogTemp, Display, TEXT("split height"));
-			right = new QuadTree(x, y, width, block.height); 
-			down = new QuadTree(x, y + block.height, width, height - block.height);
-			depth = 1;
-			return right->add_node(block);
-		}
-		quad = &block;
-		return true;
+		
 	}
 };
 
-void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &texUV) {
+void UMeshGenerator::generate(TArray<uint8> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &texUV) {
 	TArray<FVector> vertices;
 	TArray<int32> triangles;
 	TArray<FVector> normals;
@@ -382,7 +327,7 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 	const double start = FPlatformTime::Seconds();
 	int32 pos = 0;
 	//int32 old_count = 0;
-	uint8_t tex_count = 0;
+	uint8 tex_count = 0;
 	for (int32 z = 0; z < CHUNK_SIZE; ++z) {
 		for (int32 y = 0; y < CHUNK_SIZE; ++y) {
 			for (int32 x = 0; x < CHUNK_SIZE; ++x) {
@@ -412,8 +357,6 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 	}
 	pos = 0;
 	double end = FPlatformTime::Seconds();
-	//UE_LOG(LogTemp, Display, TEXT("computed faces in %f seconds"), end - start);
-	//int32 new_count = 0;
 	for (int face = 0; face < 6; face++) {
 		TStaticBitArray<CHUNK_VOLUME> &faces = faces_array[face];
 		for (int32 z = 0; z < CHUNK_SIZE; z++) {
@@ -617,23 +560,28 @@ void MeshGenerator::generate(TArray<uint8_t> cells, UProceduralMeshComponent &me
 		normals[i].Normalize(EPSILON);
 	}
 	std::sort(quads.begin(), quads.end(), less_than_size());
-	struct QuadTree *tree = new QuadTree(0, 0, 0, 0);
-	tree->fit(quads);
-	UTexture2D * uv_tex = UTexture2D::CreateTransient(tree->width, tree->height, EPixelFormat::PF_B8G8R8A8);
-	UTexture2D * fg_tex = UTexture2D::CreateTransient(tree->width, tree->height, EPixelFormat::PF_B8G8R8A8);
-	UTexture2D * bg_tex = UTexture2D::CreateTransient(tree->width, tree->height, EPixelFormat::PF_B8G8R8A8);
+	QuadTree tree = QuadTree();
+	tree.fit(quads);
+	uv_tex = UTexture2D::CreateTransient(tree.width, tree.height, EPixelFormat::PF_B8G8R8A8);
+	fg_tex = UTexture2D::CreateTransient(tree.width, tree.height, EPixelFormat::PF_B8G8R8A8);
+	bg_tex = UTexture2D::CreateTransient(tree.width, tree.height, EPixelFormat::PF_B8G8R8A8);
+	uv_tex->SRGB = 0;
+	uv_tex->Filter = TextureFilter::TF_Nearest;
+
 	void * uv_tex_data = uv_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
 	void * fg_tex_data = fg_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
 	void * bg_tex_data = bg_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
-	tree->update_tex(tree->width, (FColor*) fg_tex_data, (FColor*) bg_tex_data, (FColor*) uv_tex_data, UV1, cells, fgs, bgs, texUV);
+	FMemory::Memzero(uv_tex_data, 4 * tree.width * tree.height);
+	FMemory::Memzero(fg_tex_data, 4 * tree.width * tree.height);
+	FMemory::Memzero(bg_tex_data, 4 * tree.width * tree.height);
+	tree.update_tex(quads, (FColor*) fg_tex_data, (FColor*) bg_tex_data, (FColor*) uv_tex_data, UV1, cells, fgs, bgs, texUV);
 	bg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 	fg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 	uv_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 	uv_tex->UpdateResource();
 	fg_tex->UpdateResource();
 	bg_tex->UpdateResource();
-	delete tree;
-	//UE_LOG(LogTemp, Display, TEXT("old count: %d, new count: %d, saved quads: %d"), old_count, new_count, old_count - new_count);
+	mesh.ClearMeshSection(0);
 	mesh.CreateMeshSection(0, vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, false);
 	UMaterialInstanceDynamic *mat = UMaterialInstanceDynamic::Create(Material, &mesh);
 	mat->SetTextureParameterValue(TEXT("Foreground"), fg_tex);

@@ -13,10 +13,16 @@ AChunk::AChunk()
 	Mesher = CreateDefaultSubobject<UMeshGenerator>(TEXT("UMeshGenerator"));
 	fgs.Add(FColor(255, 255, 255, 255));
 	fgs.Add(FColor(255, 255, 255, 255));
+	fgs.Add(FColor(255, 255, 255, 255));
+	fgs.Add(FColor(255, 255, 255, 255));
 	bgs.Add(FColor(0, 0, 0, 255));
 	bgs.Add(FColor(50, 50, 50, 255));
+	bgs.Add(FColor(92, 64, 51, 255));
+	bgs.Add(FColor(240, 240, 240, 255));
 	uvs.Add(FColor(0, 0, 0, 0));
-	uvs.Add(FColor(30, 0, 39, 9));
+	uvs.Add(FColor(0, 0, 0, 255));
+	uvs.Add(FColor(1, 0, 0, 100));
+	uvs.Add(FColor(2, 0, 255, 0));
 }
 
 float random(FVector2D st) {
@@ -38,23 +44,33 @@ float noise(FVector2D st) {
 	return (1.0 - u.X) * a + u.X * b + (c - a) * u.Y * (1.0 - u.X) + (d - b) * u.X * u.Y;
 }
 
-// Called when the game starts or when spawned
-void AChunk::BeginPlay()
-{
-	Super::BeginPlay();
+void generate_cells(TStaticArray<uint8, CHUNK_VOLUME> &cells) {
+	int count = 0;
 	for (int z = 0; z < CHUNK_SIZE; z++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
 			for (int x = 0; x < CHUNK_SIZE; x++) {
 				//cells.Add(FMath::RandRange(0, 1));
-				if (((float) z) / CHUNK_SIZE < noise(2.0 * FVector2D(((float) x) / CHUNK_SIZE, ((float) y) / CHUNK_SIZE) + FVector2D(FPlatformTime::Seconds(), (FPlatformTime::Seconds())))) {
-					cells.Add(1);
+				float noise_val = noise(2.0 * FVector2D(((float) x) / CHUNK_SIZE, ((float) y) / CHUNK_SIZE) + FVector2D(FPlatformTime::Seconds(), (FPlatformTime::Seconds())));
+				if (((float) z) / CHUNK_SIZE > noise_val) {
+					cells[count] = 0;
+				} else if (z > 28){
+					cells[count] = 3;
+				} else if (z > 10) {
+					cells[count] = 2;
 				} else {
-					cells.Add(0);
+					cells[count] = 1;
 				}
+				count++;
 			}
 		}
 	}
+}
 
+// Called when the game starts or when spawned
+void AChunk::BeginPlay()
+{
+	Super::BeginPlay();
+	generate_cells(cells);
 	const double start = FPlatformTime::Seconds();
 	Mesher->generate(cells, *VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();
@@ -65,20 +81,7 @@ void AChunk::BeginPlay()
 void AChunk::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	int32 count = 0;
-	for (int z = 0; z < CHUNK_SIZE; z++) {
-		for (int y = 0; y < CHUNK_SIZE; y++) {
-			for (int x = 0; x < CHUNK_SIZE; x++) {
-				//cells.Add(FMath::RandRange(0, 1));
-				if (((float) z) / CHUNK_SIZE < noise(2.0 * FVector2D(((float) x) / CHUNK_SIZE, ((float) y) / CHUNK_SIZE) + FVector2D(FPlatformTime::Seconds(), (FPlatformTime::Seconds())))) {
-					cells[count] = 1;
-				} else {
-					cells[count] = 0;
-				}
-				count++;
-			}
-		}
-	}
+	generate_cells(cells);
 	const double start = FPlatformTime::Seconds();
 	Mesher->generate(cells, *VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();

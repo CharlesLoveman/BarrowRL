@@ -32,8 +32,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
-	UPROPERTY()
-	TArray<uint8> cells;
+	TStaticArray<uint8, CHUNK_VOLUME> cells;
 
 	UPROPERTY()
 	TArray<FColor> fgs;

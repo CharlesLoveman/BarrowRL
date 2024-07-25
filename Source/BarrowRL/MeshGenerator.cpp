@@ -261,8 +261,8 @@ public:
 		FColor *fg_tex,
 		FColor *bg_tex,
 		FColor *uv_tex,
-		TArray<FVector2D> uv,
-		const TArray<uint8> &cells,
+		TArray<FVector2D> &uv,
+		const TStaticArray<uint8, CHUNK_VOLUME> &cells,
 		TArray<FColor> &fgs,
 		TArray<FColor> &bgs,
 		TArray<FColor> &uvs
@@ -310,7 +310,7 @@ public:
 	}
 };
 
-void UMeshGenerator::generate(TArray<uint8> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &texUV) {
+void UMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &texUV) {
 	TArray<FVector> vertices;
 	TArray<int32> triangles;
 	TArray<FVector> normals;
@@ -448,7 +448,7 @@ void UMeshGenerator::generate(TArray<uint8> cells, UProceduralMeshComponent &mes
 					);
 					break;
 				case 2:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, x, z, y, width, height, face));
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, x, z, y, width, height, face));
 					create_quad(
 						FVector(x, z, y),
 						FVector(x, z, y + height),
@@ -472,7 +472,7 @@ void UMeshGenerator::generate(TArray<uint8> cells, UProceduralMeshComponent &mes
 					);
 					break;
 				case 3:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, x, z, y, width, height, face));
+					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, x, z, y, width, height, face));
 					create_quad(
 						FVector(x, z + 1, y),
 						FVector(x + width, z + 1, y),
@@ -567,6 +567,8 @@ void UMeshGenerator::generate(TArray<uint8> cells, UProceduralMeshComponent &mes
 	bg_tex = UTexture2D::CreateTransient(tree.width, tree.height, EPixelFormat::PF_B8G8R8A8);
 	uv_tex->SRGB = 0;
 	uv_tex->Filter = TextureFilter::TF_Nearest;
+	fg_tex->Filter = TextureFilter::TF_Nearest;
+	bg_tex->Filter = TextureFilter::TF_Nearest;
 
 	void * uv_tex_data = uv_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
 	void * fg_tex_data = fg_tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);

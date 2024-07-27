@@ -5,8 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MeshGenerator.h"
+#include "MaterialGenerator.h"
 #include "RealtimeMeshComponent.h"
-#include "RealtimeMeshSimple.h"
 #include "Chunk.generated.h"
 
 UCLASS()
@@ -22,7 +22,10 @@ public:
 	TObjectPtr<URealtimeMeshComponent> VisualMesh;
 
 	UPROPERTY(VisibleAnywhere)
-	UMeshGenerator *Mesher;
+	TScriptInterface<IMeshGenerator> Mesher;
+
+	UPROPERTY(VisibleAnywhere)
+	TScriptInterface<IMaterialGenerator> MatGenerator;
 
 protected:
 	// Called when the game starts or when spawned
@@ -34,13 +37,4 @@ public:
 
 private:
 	TStaticArray<uint8, CHUNK_VOLUME> cells;
-
-	UPROPERTY()
-	TArray<FColor> fgs;
-
-	UPROPERTY()
-	TArray<FColor> bgs;
-
-	UPROPERTY()
-	TArray<FColor> uvs;
 };

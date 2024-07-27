@@ -2,28 +2,18 @@
 
 
 #include "Chunk.h"
-#include "MeshGenerator.h"
+#include "GreedyMeshGenerator.h"
+#include "FastTexPacker.h"
 
 // Sets default values
 AChunk::AChunk()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	Mesher = CreateDefaultSubobject<UMeshGenerator>(TEXT("UMeshGenerator"));
+	Mesher = CreateDefaultSubobject<UGreedyMeshGenerator>(TEXT("Greedy Mesher"));
+	MatGenerator = CreateDefaultSubobject<UFastTexPacker>(TEXT("Fast Packer"));
 	VisualMesh = CreateDefaultSubobject<URealtimeMeshComponent>(TEXT("Mesh Component"));
 	SetRootComponent(VisualMesh);
-	fgs.Add(FColor(255, 255, 255, 255));
-	fgs.Add(FColor(255, 255, 255, 255));
-	fgs.Add(FColor(255, 255, 255, 255));
-	fgs.Add(FColor(255, 255, 255, 255));
-	bgs.Add(FColor(0, 0, 0, 255));
-	bgs.Add(FColor(50, 50, 50, 255));
-	bgs.Add(FColor(92, 64, 51, 255));
-	bgs.Add(FColor(240, 240, 240, 255));
-	uvs.Add(FColor(0, 0, 0, 0));
-	uvs.Add(FColor(0, 0, 0, 255));
-	uvs.Add(FColor(1, 0, 0, 100));
-	uvs.Add(FColor(2, 0, 255, 0));
 }
 
 float random(FVector2D st) {
@@ -75,7 +65,7 @@ void AChunk::BeginPlay()
 	//VisualMesh->SetupAttachment(RootComponent);
 	generate_cells(cells);
 	const double start = FPlatformTime::Seconds();
-	Mesher->generate(cells, VisualMesh, fgs, bgs, uvs);
+	Mesher->generate(cells, VisualMesh, MatGenerator);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 }
@@ -86,7 +76,7 @@ void AChunk::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	generate_cells(cells);
 	const double start = FPlatformTime::Seconds();
-	Mesher->generate(cells, VisualMesh, fgs, bgs, uvs);
+	Mesher->generate(cells, VisualMesh, MatGenerator);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 

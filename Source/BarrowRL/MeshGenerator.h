@@ -3,43 +3,31 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/ActorComponent.h"
-#include "RealtimeMeshSimple.h"
+#include "UObject/Interface.h"
 #include "RealtimeMeshComponent.h"
+#include "ChunkConstants.h"
+#include "MaterialGenerator.h"
 #include "MeshGenerator.generated.h"
 
-const uint32_t CHUNK_SIZE = 32;
-constexpr uint32_t CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+// This class does not need to be modified.
+UINTERFACE(MinimalAPI)
+class UMeshGenerator : public UInterface
+{
+	GENERATED_BODY()
+};
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class BARROWRL_API UMeshGenerator : public UActorComponent
+/**
+ * 
+ */
+class BARROWRL_API IMeshGenerator
 {
 	GENERATED_BODY()
 
-public:	
-	// Sets default values for this component's properties
-	UMeshGenerator();
-
-protected:
-	// Called when the game starts
-	virtual void BeginPlay() override;
-
-public:	
-	// Called every frame
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
-	void generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URealtimeMeshComponent *mesh_component, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &uvs);
-
-private:
-    UPROPERTY()
-    UMaterial *Material;
-
-    UPROPERTY()
-    UTexture2D *uv_tex;
-
-    UPROPERTY()
-    UTexture2D *fg_tex;
-
-    UPROPERTY()
-    UTexture2D *bg_tex;
+	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
+public:
+	virtual void generate(
+		TStaticArray<uint8, CHUNK_VOLUME> cells,
+		URealtimeMeshComponent *mesh_component,
+		TScriptInterface<IMaterialGenerator> mat_generator
+	) {}
 };

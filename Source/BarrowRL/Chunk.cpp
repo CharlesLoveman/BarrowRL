@@ -2,15 +2,16 @@
 
 
 #include "Chunk.h"
-#include "GreedyMeshGenerator.h"
+#include "ChunkConstants.h"
 #include "FastTexPacker.h"
+#include "LodMeshGenerator.h"
 
 // Sets default values
 AChunk::AChunk()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	Mesher = CreateDefaultSubobject<UGreedyMeshGenerator>(TEXT("Greedy Mesher"));
+	Mesher = CreateDefaultSubobject<ULodMeshGenerator>(TEXT("Lod Mesher"));
 	MatGenerator = CreateDefaultSubobject<UFastTexPacker>(TEXT("Fast Packer"));
 	VisualMesh = CreateDefaultSubobject<URealtimeMeshComponent>(TEXT("Mesh Component"));
 	SetRootComponent(VisualMesh);
@@ -35,7 +36,7 @@ float noise(FVector2D st) {
 	return (1.0 - u.X) * a + u.X * b + (c - a) * u.Y * (1.0 - u.X) + (d - b) * u.X * u.Y;
 }
 
-void generate_cells(TStaticArray<uint8, CHUNK_VOLUME> &cells) {
+void generate_cells(TArray<uint8> &cells) {
 	int count = 0;
 	for (int z = 0; z < CHUNK_SIZE; z++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
@@ -63,10 +64,15 @@ void AChunk::BeginPlay()
 	Super::BeginPlay();
 	//VisualMesh = NewObject<URealtimeMeshComponent>();
 	//VisualMesh->SetupAttachment(RootComponent);
+	for (int i = 0; i < CHUNK_VOLUME; i++) {
+		cells.Add(0);
+	}
 	generate_cells(cells);
+	URealtimeMeshSimple *mesh = VisualMesh->InitializeRealtimeMesh<URealtimeMeshSimple>();
 	const double start = FPlatformTime::Seconds();
-	Mesher->generate(cells, VisualMesh, MatGenerator);
+	Mesher->generate(cells, mesh, MatGenerator);
 	const double end = FPlatformTime::Seconds();
+	VisualMesh->SetRealtimeMesh(mesh);
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 }
 
@@ -75,9 +81,11 @@ void AChunk::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	generate_cells(cells);
+	URealtimeMeshSimple *mesh = VisualMesh->InitializeRealtimeMesh<URealtimeMeshSimple>();
 	const double start = FPlatformTime::Seconds();
-	Mesher->generate(cells, VisualMesh, MatGenerator);
+	Mesher->generate(cells, mesh, MatGenerator);
 	const double end = FPlatformTime::Seconds();
+	VisualMesh->SetRealtimeMesh(mesh);
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 
 }

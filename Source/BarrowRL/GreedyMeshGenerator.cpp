@@ -60,13 +60,14 @@ inline void create_quad(
 	TRealtimeMeshStreamBuilder<TIndex3<uint32>, TIndex3<uint16>> &TrianglesBuilder,
 	TRealtimeMeshStreamBuilder<FColor> &ColorBuilder,
 	TRealtimeMeshStreamBuilder<FRealtimeMeshTangentsHighPrecision, FRealtimeMeshTangentsNormalPrecision> &TangentBuilder,
-	TRealtimeMeshStreamBuilder<uint16> &PolyGroupBuilder
+	TRealtimeMeshStreamBuilder<uint16> &PolyGroupBuilder,
+	int32 lod
 ) {
 	quad(
-		100.0 * v1,
-		100.0 * v2,
-		100.0 * v3,
-		100.0 * v4,
+		(100 << lod) * v1,
+		(100 << lod) * v2,
+		(100 << lod) * v3,
+		(100 << lod) * v4,
 		tangent,
 		FColor(),
 		FColor(),
@@ -80,8 +81,8 @@ inline void create_quad(
 	);
 }
 
-void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URealtimeMeshComponent *mesh_component, TScriptInterface<IMaterialGenerator> mat_generator) {
-	URealtimeMeshSimple *mesh = mesh_component->InitializeRealtimeMesh<URealtimeMeshSimple>();
+void UGreedyMeshGenerator::generate(TArray<uint8> &cells, URealtimeMeshSimple *mesh, TScriptInterface<IMaterialGenerator> mat_generator, int32 lod, int32 chunk_shift) {
+	//URealtimeMeshSimple *mesh = mesh_component->InitializeRealtimeMesh<URealtimeMeshSimple>();
 	FRealtimeMeshStreamSet StreamSet;
 	TRealtimeMeshStreamBuilder<FVector3f> PositionBuilder(StreamSet.AddStream(FRealtimeMeshStreams::Position, GetRealtimeMeshBufferLayout<FVector3f>()));
 	TRealtimeMeshStreamBuilder<FRealtimeMeshTangentsHighPrecision, FRealtimeMeshTangentsNormalPrecision> TangentBuilder(
@@ -94,35 +95,39 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 	TRealtimeMeshStreamBuilder<TIndex3<uint32>, TIndex3<uint16>> TrianglesBuilder(StreamSet.AddStream(FRealtimeMeshStreams::Triangles, GetRealtimeMeshBufferLayout<TIndex3<uint16>>()));
 	TRealtimeMeshStreamBuilder<uint16> PolyGroupBuilder(StreamSet.AddStream(FRealtimeMeshStreams::PolyGroups, GetRealtimeMeshBufferLayout<uint16>()));
 
-	TStaticArray<TStaticBitArray<CHUNK_VOLUME>, 6> faces_array;
-	TStaticBitArray<CHUNK_SIZE * CHUNK_SIZE> visited;
+	int32 chunk_size = 1 << chunk_shift;
+	TStaticArray<TBitArray<>, 6> faces_array;
+	for (int i = 0; i < 6; i++) {
+		faces_array[i] = TBitArray(false, chunk_size * chunk_size * chunk_size);
+	}
+	TBitArray<> visited;
 	TArray<Quad> quads;
 	
 	const double start = FPlatformTime::Seconds();
 	int32 pos = 0;
 	//int32 old_count = 0;
 	uint8 tex_count = 0;
-	for (int32 z = 0; z < CHUNK_SIZE; ++z) {
-		for (int32 y = 0; y < CHUNK_SIZE; ++y) {
-			for (int32 x = 0; x < CHUNK_SIZE; ++x) {
-				if (cells[index(x, y, z)]) {
-					if (z == 0 || cells[pos - CHUNK_SIZE * CHUNK_SIZE] == 0) {
-						faces_array[0][index(x, y, z)] = 1;
+	for (int32 z = 0; z < chunk_size; ++z) {
+		for (int32 y = 0; y < chunk_size; ++y) {
+			for (int32 x = 0; x < chunk_size; ++x) {
+				if (cells[index(x, y, z, chunk_shift)]) {
+					if (z == 0 || cells[pos - chunk_size * chunk_size] == 0) {
+						faces_array[0][index(x, y, z, chunk_shift)] = 1;
 					}
-					if (z == CHUNK_SIZE - 1 || cells[pos + CHUNK_SIZE * CHUNK_SIZE] == 0) {
-						faces_array[1][index(x, y, z)] = 1;
+					if (z == chunk_size - 1 || cells[pos + chunk_size * chunk_size] == 0) {
+						faces_array[1][index(x, y, z, chunk_shift)] = 1;
 					}
-					if (y == 0 || cells[pos - CHUNK_SIZE] == 0) {
-						faces_array[2][index(x, z, y)] = 1;
+					if (y == 0 || cells[pos - chunk_size] == 0) {
+						faces_array[2][index(x, z, y, chunk_shift)] = 1;
 					}
-					if (y == CHUNK_SIZE - 1 || cells[pos + CHUNK_SIZE] == 0) {
-						faces_array[3][index(x, z, y)] = 1;
+					if (y == chunk_size - 1 || cells[pos + chunk_size] == 0) {
+						faces_array[3][index(x, z, y, chunk_shift)] = 1;
 					}
 					if (x == 0 || cells[pos - 1] == 0) {
-						faces_array[4][index(y, z, x)] = 1;
+						faces_array[4][index(y, z, x, chunk_shift)] = 1;
 					}
-					if (x == CHUNK_SIZE - 1 || cells[pos + 1] == 0) {
-						faces_array[5][index(y, z, x)] = 1;
+					if (x == chunk_size - 1 || cells[pos + 1] == 0) {
+						faces_array[5][index(y, z, x, chunk_shift)] = 1;
 					}
 				}
 				pos++;
@@ -133,16 +138,16 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 	double end = FPlatformTime::Seconds();
 	uint32 num_vertices = 0;
 	for (int face = 0; face < 6; face++) {
-		TStaticBitArray<CHUNK_VOLUME> &faces = faces_array[face];
-		for (int32 z = 0; z < CHUNK_SIZE; z++) {
-			visited = visited ^ visited;
+		TBitArray<> &faces = faces_array[face];
+		for (int32 z = 0; z < chunk_size; z++) {
+			visited.Init(false, chunk_size * chunk_size);
 			int x = 0;
 			int y = 0;
 			int32 vPos = 0;
-			while (y < CHUNK_SIZE) {
-				if (visited[vPos] || !faces[index(x, y, z)]) {
+			while (y < chunk_size) {
+				if (visited[vPos] || !faces[index(x, y, z, chunk_shift)]) {
 					vPos++;
-					if (x < CHUNK_SIZE - 1) {
+					if (x < chunk_size - 1) {
 						x++;
 					} else {
 						x = 0;
@@ -152,15 +157,15 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 				}
 				visited[vPos] = 1;
 				int width = 1;
-				while (x + width < CHUNK_SIZE && !visited[x + width + CHUNK_SIZE * y] && faces[index(x + width, y, z)]) {
+				while (x + width < chunk_size && !visited[x + width + chunk_size * y] && faces[index(x + width, y, z, chunk_shift)]) {
 					visited[vPos + width] = 1;
 					width++;
 				}
 				int height = 1;
-				while (y + height < CHUNK_SIZE && faces[index(x, y + height, z)]) {
+				while (y + height < chunk_size && faces[index(x, y + height, z, chunk_shift)]) {
 					bool flag = false;
 					for (int i = 0; i < width; i++) {
-						if (!faces[index(x + i, y + height, z)]) {
+						if (!faces[index(x + i, y + height, z, chunk_shift)]) {
 							flag = true;
 							break;
 						}
@@ -169,7 +174,7 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 						break;
 					}
 					for (int i = 0; i < width; i++) {
-						visited[x + i + CHUNK_SIZE * (y + height)] = 1;
+						visited[x + i + chunk_size * (y + height)] = 1;
 					}
 					height++;
 				}
@@ -186,7 +191,8 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 						TrianglesBuilder,
 						ColorBuilder,
 						TangentBuilder,
-						PolyGroupBuilder
+						PolyGroupBuilder,
+						lod
 					);
 					break;
 				case 1:
@@ -201,7 +207,8 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 						TrianglesBuilder,
 						ColorBuilder,
 						TangentBuilder,
-						PolyGroupBuilder
+						PolyGroupBuilder,
+						lod
 					);
 					break;
 				case 2:
@@ -216,7 +223,8 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 						TrianglesBuilder,
 						ColorBuilder,
 						TangentBuilder,
-						PolyGroupBuilder
+						PolyGroupBuilder,
+						lod
 					);
 					break;
 				case 3:
@@ -231,7 +239,8 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 						TrianglesBuilder,
 						ColorBuilder,
 						TangentBuilder,
-						PolyGroupBuilder
+						PolyGroupBuilder,
+						lod
 					);
 					break;
 				case 4:
@@ -246,7 +255,8 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 						TrianglesBuilder,
 						ColorBuilder,
 						TangentBuilder,
-						PolyGroupBuilder
+						PolyGroupBuilder,
+						lod
 					);
 					break;
 				case 5:
@@ -261,7 +271,8 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 						TrianglesBuilder,
 						ColorBuilder,
 						TangentBuilder,
-						PolyGroupBuilder
+						PolyGroupBuilder,
+						lod
 					);
 					break;
 				default:
@@ -270,7 +281,7 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 				num_vertices += 4;
 				x += width;
 				vPos += width;
-				if (x >= CHUNK_SIZE) {
+				if (x >= chunk_size) {
 					x = 0;
 					y++;
 				}
@@ -283,7 +294,7 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 		uv0.Add(FVector2f());
 		uv1.Add(FVector2f());
 	}
-	mesh->SetupMaterialSlot(0, "Material", mat_generator->generate(quads, cells, uv0, uv1, mesh));
+	mesh->SetupMaterialSlot(lod, "Material", mat_generator->generate(quads, cells, uv0, uv1, mesh, lod, chunk_shift));
 
 	for (int i = 0; i < num_vertices; i++) {
 		//UE_LOG(LogTemp, Display, TEXT("uv1 i: %d, u: %f, v: %f"), i, UV1Builder[i].X, UV1Builder[i].Y);
@@ -291,9 +302,8 @@ void UGreedyMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URe
 	}
 	//UV1Builder.Append(uv1);
 
-	const FRealtimeMeshSectionGroupKey GroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName("Chunk"));
+	const FRealtimeMeshSectionGroupKey GroupKey = FRealtimeMeshSectionGroupKey::Create(lod, FName("Chunk"));
 	const FRealtimeMeshSectionKey PolyGroup0SectionKey = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 0);
 	mesh->CreateSectionGroup(GroupKey, StreamSet);
-	mesh->UpdateSectionConfig(PolyGroup0SectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0));
-	mesh_component->SetRealtimeMesh(mesh);
+	mesh->UpdateSectionConfig(PolyGroup0SectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, lod));
 }

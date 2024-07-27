@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "RealtimeMeshComponent.h"
+#include "RealtimeMeshSimple.h"
 #include "ChunkConstants.h"
 #include "MaterialGenerator.h"
 #include "MeshGenerator.generated.h"
@@ -26,8 +26,10 @@ class BARROWRL_API IMeshGenerator
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	virtual void generate(
-		TStaticArray<uint8, CHUNK_VOLUME> cells,
-		URealtimeMeshComponent *mesh_component,
-		TScriptInterface<IMaterialGenerator> mat_generator
+		TArray<uint8> &cells,
+		URealtimeMeshSimple *mesh,
+		TScriptInterface<IMaterialGenerator> mat_generator,
+		int32 lod = 0,
+		int32 chunk_shift = 5
 	) {}
 };

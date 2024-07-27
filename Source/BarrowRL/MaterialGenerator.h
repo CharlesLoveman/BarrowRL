@@ -47,10 +47,12 @@ class BARROWRL_API IMaterialGenerator
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	virtual UMaterialInterface* generate(
-		TArray<Quad> quads,
-		TStaticArray<uint8, CHUNK_VOLUME> cells,
+		TArray<Quad> &quads,
+		TArray<uint8> &cells,
 		TArray<FVector2f> &uv0,
 		TArray<FVector2f> &uv1,
-		UObject *parent
+		UObject *parent,
+		int32 lod,
+		int32 chunk_shift
 	);
 };

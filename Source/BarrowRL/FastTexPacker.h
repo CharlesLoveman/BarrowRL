@@ -26,11 +26,13 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override {}
 
 	virtual UMaterialInterface* generate(
-		TArray<Quad> quads,
-		TStaticArray<uint8, CHUNK_VOLUME> cells,
+		TArray<Quad> &quads,
+		TArray<uint8> &cells,
 		TArray<FVector2f> &uv0,
 		TArray<FVector2f> &uv1,
-		UObject *parent
+		UObject *parent,
+		int32 lod,
+		int32 chunk_shift
 	) override;
 
 protected:
@@ -53,14 +55,15 @@ private:
 	int32 height;
 
 
-	void fit(TArray<Quad> &blocks);
+	void fit(TArray<Quad> &blocks, int32 chunk_shift);
 	void update_tex(
 		TArray<Quad> &blocks,
-		TStaticArray<uint8, CHUNK_VOLUME> &cells,
+		TArray<uint8> &cells,
 		FColor *fg_tex,
 		FColor *bg_tex,
 		FColor *uv_tex,
 		TArray<FVector2f> &uv0,
-		TArray<FVector2f> &uv1
+		TArray<FVector2f> &uv1,
+		int32 chunk_shift
 	);
 };

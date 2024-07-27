@@ -38,14 +38,16 @@ void UFastTexPacker::BeginPlay()
 }
 
 UMaterialInterface* UFastTexPacker::generate(
-	TArray<Quad> quads,
-	TStaticArray<uint8, CHUNK_VOLUME> cells,
+	TArray<Quad> &quads,
+	TArray<uint8> &cells,
 	TArray<FVector2f> &uv0,
 	TArray<FVector2f> &uv1,
-	UObject *parent
+	UObject *parent,
+	int32 lod,
+	int32 chunk_shift
 ) {
 	quads.Sort();
-	fit(quads);
+	fit(quads, chunk_shift);
 	UTexture2D *uv_tex = UTexture2D::CreateTransient(width, height, EPixelFormat::PF_B8G8R8A8);
 	UTexture2D *fg_tex = UTexture2D::CreateTransient(width, height, EPixelFormat::PF_B8G8R8A8);
 	UTexture2D *bg_tex = UTexture2D::CreateTransient(width, height, EPixelFormat::PF_B8G8R8A8);
@@ -66,7 +68,8 @@ UMaterialInterface* UFastTexPacker::generate(
 		(FColor *) bg_tex_data,
 		(FColor *) uv_tex_data,
 		uv0,
-		uv1
+		uv1,
+		chunk_shift
 	);
 	bg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 	fg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
@@ -81,18 +84,19 @@ UMaterialInterface* UFastTexPacker::generate(
 	return mat;
 }
 
-void UFastTexPacker::fit(TArray<Quad> &quads) {
+void UFastTexPacker::fit(TArray<Quad> &quads, int32 chunk_shift) {
 	int32 count = 0;
 	int32 x = 0;
 	int32 y = 0;
 	int32 prev_height = 0;
+	int32 chunk_size = 1 << chunk_shift;
 	for (auto &quad : quads) {
-		if (quad.height > prev_height || x + quad.width > CHUNK_SIZE) {
+		if (quad.height > prev_height || x + quad.width > chunk_size) {
 			x = 0;
 			y += prev_height;
 			prev_height = quad.height;
 		}
-		if (y + prev_height > CHUNK_SIZE) {
+		if (y + prev_height > chunk_size) {
 			x = 0;
 			y = 0;
 			prev_height = quad.height;
@@ -106,22 +110,24 @@ void UFastTexPacker::fit(TArray<Quad> &quads) {
 	count += 1;
 	rows = floor(sqrt(count)); 
 	cols = ceil(((float) count) / rows);
-	height = CHUNK_SIZE * rows;
-	width = CHUNK_SIZE * cols;
+	height = chunk_size * rows;
+	width = chunk_size * cols;
 }
 
 void UFastTexPacker::update_tex(
 	TArray<Quad> &quads,
-	TStaticArray<uint8, CHUNK_VOLUME> &cells,
+	TArray<uint8> &cells,
 	FColor *fg_tex,
 	FColor *bg_tex,
 	FColor *uv_tex,
 	TArray<FVector2f> &uv0,
-	TArray<FVector2f> &uv1
+	TArray<FVector2f> &uv1,
+	int32 chunk_shift
 ) {
+	int32 chunk_size = 1 << chunk_shift;
 	for (auto quad : quads) {
-		int32 x_offset = (quad.tile_id % cols) * CHUNK_SIZE;
-		int32 y_offset = (quad.tile_id / cols) * CHUNK_SIZE;
+		int32 x_offset = (quad.tile_id % cols) * chunk_size;
+		int32 y_offset = (quad.tile_id / cols) * chunk_size;
 		uv0[quad.v1] = FVector2f(0.0, 0.0);
 		uv0[quad.v2] = FVector2f(quad.width, 0.0);
 		uv0[quad.v3] = FVector2f(quad.width, quad.height);
@@ -135,9 +141,9 @@ void UFastTexPacker::update_tex(
 		case 1:
 			for (int i = 0; i < quad.height; i++) {
 				for (int j = 0; j < quad.width; j++) {
-					fg_tex[(x_offset + quad.tex_x + j) + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x + j, quad.y + i, quad.z)]];
-					bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x + j, quad.y + i, quad.z)]];
-					uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x + j, quad.y + i, quad.z)]];
+					fg_tex[(x_offset + quad.tex_x + j) + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x + j, quad.y + i, quad.z, chunk_shift)]];
+					bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x + j, quad.y + i, quad.z, chunk_shift)]];
+					uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x + j, quad.y + i, quad.z, chunk_shift)]];
 				}
 			}
 			break;
@@ -145,18 +151,18 @@ void UFastTexPacker::update_tex(
 		case 3:
 			for (int i = 0; i < quad.height; i++) {
 				for (int j = 0; j < quad.width; j++) {
-					fg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x + j, quad.y, quad.z + i)]];
-					bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x + j, quad.y, quad.z + i)]];
-					uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x + j, quad.y, quad.z + i)]];
+					fg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x + j, quad.y, quad.z + i, chunk_shift)]];
+					bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x + j, quad.y, quad.z + i, chunk_shift)]];
+					uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x + j, quad.y, quad.z + i, chunk_shift)]];
 				}
 			}
 			break;
 		default:
 			for (int i = 0; i < quad.height; i++) {
 				for (int j = 0; j < quad.width; j++) {
-					fg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x, quad.y + j, quad.z + i)]];
-					bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x, quad.y + j, quad.z + i)]];
-					uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x, quad.y + j, quad.z + i)]];
+					fg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = fgs[cells[index(quad.x, quad.y + j, quad.z + i, chunk_shift)]];
+					bg_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = bgs[cells[index(quad.x, quad.y + j, quad.z + i, chunk_shift)]];
+					uv_tex[x_offset + quad.tex_x + j + (y_offset + quad.tex_y + i) * width] = uvs[cells[index(quad.x, quad.y + j, quad.z + i, chunk_shift)]];
 				}
 			}
 			break;

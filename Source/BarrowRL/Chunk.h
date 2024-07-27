@@ -36,5 +36,5 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
-	TStaticArray<uint8, CHUNK_VOLUME> cells;
+	TArray<uint8> cells;
 };

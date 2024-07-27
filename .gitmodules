@@ -1,0 +1,3 @@
+[submodule "Plugins/RealtimeMeshComponent"]
+	path = Plugins/RealtimeMeshComponent
+	url = git@github.com:TriAxis-Games/RealtimeMeshComponent.git

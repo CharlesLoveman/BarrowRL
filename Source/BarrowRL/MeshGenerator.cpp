@@ -4,6 +4,7 @@
 #include "MeshGenerator.h"
 #include "Containers/StaticArray.h"
 #include "Containers/StaticBitArray.h"
+#include <vector>
 #include <cstdint>
 
 // Sets default values for this component's properties
@@ -47,150 +48,68 @@ inline int32 index(int32 x, int32 y, int32 z) {
 	return x + ((y + (z << CHUNK_SHIFT)) << CHUNK_SHIFT);
 }
 
-inline int32 get_vertex_index(
-	const FVector &v,
-	const FVector2D &uv0,
-	const FVector2D &uv1,
-	const FVector2D &uv2,
-	const FVector2D &uv3,
-	const FColor &color,
-	TArray<FVector> &vertices,
-	TArray<FVector> &normals,
-	TArray<FVector2D> &UV0,
-	TArray<FVector2D> &UV1,
-	TArray<FVector2D> &UV2,
-	TArray<FVector2D> &UV3,
-	TArray<FColor> &vertex_colors,
-	TArray<FProcMeshTangent> &tangents
-) {
-	int32 vertex_index = vertices.Num();
-	vertices.Emplace(v);
-	normals.Emplace(FVector(0.0, 0.0, 0.0));
-	UV0.Emplace(uv0);
-	UV1.Emplace(uv1);
-	UV2.Emplace(uv2);
-	UV3.Emplace(uv3);
-	vertex_colors.Emplace(color);
-	tangents.Emplace(FProcMeshTangent());
-	return vertex_index;
-}
-
-
 inline void quad(
-	const FVector &v1,
-	const FVector &v2,
-	const FVector &v3,
-	const FVector &v4,
-	const FVector &normal,
-	const FProcMeshTangent tangent,
-	const FVector2D &v1_UV0,
-	const FVector2D &v1_UV1,
-	const FVector2D &v1_UV2,
-	const FVector2D &v1_UV3,
-	const FVector2D &v2_UV0,
-	const FVector2D &v2_UV1,
-	const FVector2D &v2_UV2,
-	const FVector2D &v2_UV3,
-	const FVector2D &v3_UV0,
-	const FVector2D &v3_UV1,
-	const FVector2D &v3_UV2,
-	const FVector2D &v3_UV3,
-	const FVector2D &v4_UV0,
-	const FVector2D &v4_UV1,
-	const FVector2D &v4_UV2,
-	const FVector2D &v4_UV3,
+	const FVector3f &v1,
+	const FVector3f &v2,
+	const FVector3f &v3,
+	const FVector3f &v4,
+	const FRealtimeMeshTangentsHighPrecision &tangent,
 	const FColor &v1_color,
 	const FColor &v2_color,
 	const FColor &v3_color,
 	const FColor &v4_color,
-	TArray<FVector> &vertices,
-	TArray<int32> &triangles,
-	TArray<FVector> &normals,
-	TArray<FVector2D> &UV0,
-	TArray<FVector2D> &UV1,
-	TArray<FVector2D> &UV2,
-	TArray<FVector2D> &UV3,
-	TArray<FColor> &vertex_colors,
-	TArray<FProcMeshTangent> &tangents
+	TRealtimeMeshStreamBuilder<FVector3f> &PositionBuilder,
+	TRealtimeMeshStreamBuilder<TIndex3<uint32>, TIndex3<uint16>> &TrianglesBuilder,
+	TRealtimeMeshStreamBuilder<FColor> &ColorBuilder,
+	TRealtimeMeshStreamBuilder<FRealtimeMeshTangentsHighPrecision, FRealtimeMeshTangentsNormalPrecision> &TangentBuilder,
+	TRealtimeMeshStreamBuilder<uint16> &PolyGroupBuilder
 ) {
-	const int32 v1_index = get_vertex_index(v1, v1_UV0, v1_UV1, v1_UV2, v1_UV3, v1_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
-	const int32 v2_index = get_vertex_index(v2, v2_UV0, v2_UV1, v2_UV2, v2_UV3, v2_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
-	const int32 v3_index = get_vertex_index(v3, v3_UV0, v3_UV1, v3_UV2, v3_UV3, v3_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
-	const int32 v4_index = get_vertex_index(v4, v4_UV0, v4_UV1, v4_UV2, v4_UV3, v4_color, vertices, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents);
-	triangles.Add(v1_index);
-	triangles.Add(v2_index);
-	triangles.Add(v3_index);
-	triangles.Add(v1_index);
-	triangles.Add(v3_index);
-	triangles.Add(v4_index);
-	normals[v1_index] += normal; 
-	tangents[v1_index] = tangent;
-	normals[v2_index] += normal; 
-	tangents[v2_index] = tangent;
-	normals[v3_index] += normal; 
-	tangents[v3_index] = tangent;
-	normals[v4_index] += normal; 
-	tangents[v4_index] = tangent;
+	int32 v1_index = PositionBuilder.Add(v1);
+	int32 v2_index = PositionBuilder.Add(v2);
+	int32 v3_index = PositionBuilder.Add(v3);
+	int32 v4_index = PositionBuilder.Add(v4);
+	TrianglesBuilder.Add(TIndex3<uint32>(v1_index, v2_index, v3_index));
+	PolyGroupBuilder.Add(0);
+	TrianglesBuilder.Add(TIndex3<uint32>(v1_index, v3_index, v4_index));
+	PolyGroupBuilder.Add(0);
+	ColorBuilder.Add(v1_color);
+	ColorBuilder.Add(v2_color);
+	ColorBuilder.Add(v3_color);
+	ColorBuilder.Add(v4_color);
+	TangentBuilder.Add(tangent);
+	TangentBuilder.Add(tangent);
+	TangentBuilder.Add(tangent);
+	TangentBuilder.Add(tangent);
 }
 
 
 inline void create_quad(
-	const FVector &v1, 
-	const FVector &v2, 
-	const FVector &v3, 
-	const FVector &v4, 
-	const FVector &normal,
-	const FProcMeshTangent tangent,
-	const FVector2D &uv01,
-	const FVector2D &uv02,
-	const FVector2D &uv03,
-	const FVector2D &uv04,
-	TArray<FVector> &vertices,
-	TArray<int32> &triangles,
-	TArray<FVector> &normals,
-	TArray<FVector2D> &UV0,
-	TArray<FVector2D> &UV1,
-	TArray<FVector2D> &UV2,
-	TArray<FVector2D> &UV3,
-	TArray<FColor> &vertex_colors,
-	TArray<FProcMeshTangent> &tangents
+	const FVector3f &v1, 
+	const FVector3f &v2, 
+	const FVector3f &v3, 
+	const FVector3f &v4, 
+	const FRealtimeMeshTangentsHighPrecision &tangent,
+	TRealtimeMeshStreamBuilder<FVector3f> &PositionBuilder,
+	TRealtimeMeshStreamBuilder<TIndex3<uint32>, TIndex3<uint16>> &TrianglesBuilder,
+	TRealtimeMeshStreamBuilder<FColor> &ColorBuilder,
+	TRealtimeMeshStreamBuilder<FRealtimeMeshTangentsHighPrecision, FRealtimeMeshTangentsNormalPrecision> &TangentBuilder,
+	TRealtimeMeshStreamBuilder<uint16> &PolyGroupBuilder
 ) {
 	quad(
 		100.0 * v1,
 		100.0 * v2,
 		100.0 * v3,
 		100.0 * v4,
-		normal,
 		tangent,
-		uv01,
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		uv02,
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		uv03,
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		uv04,
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
-		FVector2D(0.0, 0.0),
 		FColor(),
 		FColor(),
 		FColor(),
 		FColor(),
-		vertices,
-		triangles,
-		normals,
-		UV0,
-		UV1,
-		UV2,
-		UV3,
-		vertex_colors,
-		tangents
+		PositionBuilder,
+		TrianglesBuilder,
+		ColorBuilder,
+		TangentBuilder,
+		PolyGroupBuilder
 	);
 }
 
@@ -261,7 +180,8 @@ public:
 		FColor *fg_tex,
 		FColor *bg_tex,
 		FColor *uv_tex,
-		TArray<FVector2D> &uv,
+		TArray<FVector2f> &uv0,
+		TArray<FVector2f> &uv1,
 		const TStaticArray<uint8, CHUNK_VOLUME> &cells,
 		TArray<FColor> &fgs,
 		TArray<FColor> &bgs,
@@ -270,10 +190,14 @@ public:
 		for (auto quad : blocks) {
 			int32 x_offset = (quad.tile_id % cols) * CHUNK_SIZE;
 			int32 y_offset = (quad.tile_id / cols) * CHUNK_SIZE;
-			uv[quad.v1] = FVector2D(x_offset + quad.tex_x, y_offset + quad.tex_y) / FVector2D(width, height);
-			uv[quad.v2] = FVector2D(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y) / FVector2D(width, height);
-			uv[quad.v3] = FVector2D(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y + quad.height) / FVector2D(width, height);
-			uv[quad.v4] = FVector2D(x_offset + quad.tex_x, y_offset + quad.tex_y + quad.height) / FVector2D(width, height);
+			uv0[quad.v1] = FVector2f(0.0, 0.0);
+			uv0[quad.v2] = FVector2f(quad.width, 0.0);
+			uv0[quad.v3] = FVector2f(quad.width, quad.height);
+			uv0[quad.v4] = FVector2f(0.0, quad.height);
+			uv1[quad.v1] = FVector2f(x_offset + quad.tex_x, y_offset + quad.tex_y) / FVector2f(width, height);
+			uv1[quad.v2] = FVector2f(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y) / FVector2f(width, height);
+			uv1[quad.v3] = FVector2f(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y + quad.height) / FVector2f(width, height);
+			uv1[quad.v4] = FVector2f(x_offset + quad.tex_x, y_offset + quad.tex_y + quad.height) / FVector2f(width, height);
 			switch (quad.face) {
 			case 0:
 			case 1:
@@ -310,16 +234,20 @@ public:
 	}
 };
 
-void UMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &texUV) {
-	TArray<FVector> vertices;
-	TArray<int32> triangles;
-	TArray<FVector> normals;
-	TArray<FVector2D> UV0;
-	TArray<FVector2D> UV1;
-	TArray<FVector2D> UV2;
-	TArray<FVector2D> UV3;
-	TArray<FColor> vertex_colors;
-	TArray<FProcMeshTangent> tangents;
+void UMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URealtimeMeshComponent *mesh_component, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &texUV) {
+	URealtimeMeshSimple *mesh = mesh_component->InitializeRealtimeMesh<URealtimeMeshSimple>();
+	FRealtimeMeshStreamSet StreamSet;
+	TRealtimeMeshStreamBuilder<FVector3f> PositionBuilder(StreamSet.AddStream(FRealtimeMeshStreams::Position, GetRealtimeMeshBufferLayout<FVector3f>()));
+	TRealtimeMeshStreamBuilder<FRealtimeMeshTangentsHighPrecision, FRealtimeMeshTangentsNormalPrecision> TangentBuilder(
+		StreamSet.AddStream(FRealtimeMeshStreams::Tangents, GetRealtimeMeshBufferLayout<FRealtimeMeshTangentsNormalPrecision>()
+	));
+	//auto TexCoordsStream = StreamSet.AddStream(FRealtimeMeshStreams::TexCoords, GetRealtimeMeshBufferLayout<TRealtimeMeshTexCoords<FVector2f, 2>>());
+	TRealtimeMeshStreamBuilder<TRealtimeMeshTexCoords<FVector2f, 2>> UVBuilder(StreamSet.AddStream(FRealtimeMeshStreams::TexCoords, GetRealtimeMeshBufferLayout<TRealtimeMeshTexCoords<FVector2f, 2>>()));
+	
+	TRealtimeMeshStreamBuilder<FColor> ColorBuilder(StreamSet.AddStream(FRealtimeMeshStreams::Color, GetRealtimeMeshBufferLayout<FColor>()));
+	TRealtimeMeshStreamBuilder<TIndex3<uint32>, TIndex3<uint16>> TrianglesBuilder(StreamSet.AddStream(FRealtimeMeshStreams::Triangles, GetRealtimeMeshBufferLayout<TIndex3<uint16>>()));
+	TRealtimeMeshStreamBuilder<uint16> PolyGroupBuilder(StreamSet.AddStream(FRealtimeMeshStreams::PolyGroups, GetRealtimeMeshBufferLayout<uint16>()));
+
 	TStaticArray<TStaticBitArray<CHUNK_VOLUME>, 6> faces_array;
 	TStaticBitArray<CHUNK_SIZE * CHUNK_SIZE> visited;
 	std::vector<Quad> quads;
@@ -357,6 +285,7 @@ void UMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, UProcedur
 	}
 	pos = 0;
 	double end = FPlatformTime::Seconds();
+	uint32 num_vertices = 0;
 	for (int face = 0; face < 6; face++) {
 		TStaticBitArray<CHUNK_VOLUME> &faces = faces_array[face];
 		for (int32 z = 0; z < CHUNK_SIZE; z++) {
@@ -400,152 +329,99 @@ void UMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, UProcedur
 				}
 				switch (face) {
 				case 0:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, x, y, z, width, height, face));
+					quads.push_back(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, x, y, z, width, height, face));
 					create_quad(
-						FVector(x, y, z),
-						FVector(x + width, y, z),
-						FVector(x + width, y + height, z),
-						FVector(x, y + height, z),
-						FVector(0.0f, 0.0f, -1.0f),
-						FProcMeshTangent(-1.0, 0.0, 0.0),
-						FVector2D(0.0, 0.0),
-						FVector2D(width, 0.0),
-						FVector2D(width, height),
-						FVector2D(0.0, height),
-						vertices,
-						triangles,
-						normals,
-						UV0,
-						UV1,
-						UV2,
-						UV3,
-						vertex_colors,
-						tangents
+						FVector3f(x, y, z),
+						FVector3f(x + width, y, z),
+						FVector3f(x + width, y + height, z),
+						FVector3f(x, y + height, z),
+						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(-1.0, 0.0, 0.0)),
+						PositionBuilder,
+						TrianglesBuilder,
+						ColorBuilder,
+						TangentBuilder,
+						PolyGroupBuilder
 					);
 					break;
 				case 1:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, x, y, z, width, height, face));
+					quads.push_back(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, x, y, z, width, height, face));
 					create_quad(
-						FVector(x, y, z + 1),
-						FVector(x, y + height, z + 1),
-						FVector(x + width, y + height, z + 1),
-						FVector(x + width, y, z + 1),
-						FVector(0.0f, 0.0f, 1.0f),
-						FProcMeshTangent(-1.0, 0.0, 0.0),
-						FVector2D(0.0, 0.0),
-						FVector2D(0.0, height),
-						FVector2D(width, height),
-						FVector2D(width, 0.0),
-						vertices,
-						triangles,
-						normals,
-						UV0,
-						UV1,
-						UV2,
-						UV3,
-						vertex_colors,
-						tangents
+						FVector3f(x, y, z + 1),
+						FVector3f(x, y + height, z + 1),
+						FVector3f(x + width, y + height, z + 1),
+						FVector3f(x + width, y, z + 1),
+						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(-1.0, 0.0, 0.0)),
+						PositionBuilder,
+						TrianglesBuilder,
+						ColorBuilder,
+						TangentBuilder,
+						PolyGroupBuilder
 					);
 					break;
 				case 2:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, x, z, y, width, height, face));
+					quads.push_back(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, x, z, y, width, height, face));
 					create_quad(
-						FVector(x, z, y),
-						FVector(x, z, y + height),
-						FVector(x + width, z, y + height),
-						FVector(x + width, z, y),
-						FVector(0.0f, -1.0f, 0.0f),
-						FProcMeshTangent(1.0, 0.0, 0.0),
-						FVector2D(0.0, 0.0),
-						FVector2D(0.0, height),
-						FVector2D(width, height),
-						FVector2D(width, 0.0),
-						vertices,
-						triangles,
-						normals,
-						UV0,
-						UV1,
-						UV2,
-						UV3,
-						vertex_colors,
-						tangents
+						FVector3f(x, z, y),
+						FVector3f(x, z, y + height),
+						FVector3f(x + width, z, y + height),
+						FVector3f(x + width, z, y),
+						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0, -1.0, 0.0), FVector3f(1.0, 0.0, 0.0)),
+						PositionBuilder,
+						TrianglesBuilder,
+						ColorBuilder,
+						TangentBuilder,
+						PolyGroupBuilder
 					);
 					break;
 				case 3:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, x, z, y, width, height, face));
+					quads.push_back(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, x, z, y, width, height, face));
 					create_quad(
-						FVector(x, z + 1, y),
-						FVector(x + width, z + 1, y),
-						FVector(x + width, z + 1, y + height),
-						FVector(x, z + 1, y + height),
-						FVector(0.0f, 1.0f, 0.0f),
-						FProcMeshTangent(1.0, 0.0, 0.0),
-						FVector2D(0.0, 0.0),
-						FVector2D(width, 0.0),
-						FVector2D(width, height),
-						FVector2D(0.0, height),
-						vertices,
-						triangles,
-						normals,
-						UV0,
-						UV1,
-						UV2,
-						UV3,
-						vertex_colors,
-						tangents
+						FVector3f(x, z + 1, y),
+						FVector3f(x + width, z + 1, y),
+						FVector3f(x + width, z + 1, y + height),
+						FVector3f(x, z + 1, y + height),
+						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0, 1.0, 0.0), FVector3f(1.0, 0.0, 0.0)),
+						PositionBuilder,
+						TrianglesBuilder,
+						ColorBuilder,
+						TangentBuilder,
+						PolyGroupBuilder
 					);
 					break;
 				case 4:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 1, vertices.Num() + 2, vertices.Num() + 3, z, x, y, width, height, face));
+					quads.push_back(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, z, x, y, width, height, face));
 					create_quad(
-						FVector(z, x, y),
-						FVector(z, x + width, y),
-						FVector(z, x + width, y + height),
-						FVector(z, x, y + height),
-						FVector(-1.0f, 0.0f, 0.0f),
-						FProcMeshTangent(0.0, 0.0, 0.0),
-						FVector2D(0.0, 0.0),
-						FVector2D(width, 0.0),
-						FVector2D(width, height),
-						FVector2D(0.0, height),
-						vertices,
-						triangles,
-						normals,
-						UV0,
-						UV1,
-						UV2,
-						UV3,
-						vertex_colors,
-						tangents
+						FVector3f(z, x, y),
+						FVector3f(z, x + width, y),
+						FVector3f(z, x + width, y + height),
+						FVector3f(z, x, y + height),
+						FRealtimeMeshTangentsHighPrecision(FVector3f(-1.0, 0.0, 0.0), FVector3f(0.0, 1.0, 0.0)),
+						PositionBuilder,
+						TrianglesBuilder,
+						ColorBuilder,
+						TangentBuilder,
+						PolyGroupBuilder
 					);
 					break;
 				case 5:
-					quads.push_back(Quad(vertices.Num(), vertices.Num() + 3, vertices.Num() + 2, vertices.Num() + 1, z, x, y, width, height, face));
+					quads.push_back(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, z, x, y, width, height, face));
 					create_quad(
-						FVector(z + 1, x, y),
-						FVector(z + 1, x, y + height),
-						FVector(z + 1, x + width, y + height),
-						FVector(z + 1, x + width, y),
-						FVector(1.0f, 0.0f, 0.0f),
-						FProcMeshTangent(0.0, 0.0, 0.0),
-						FVector2D(0.0, 0.0),
-						FVector2D(0.0, height),
-						FVector2D(width, height),
-						FVector2D(width, 0.0),
-						vertices,
-						triangles,
-						normals,
-						UV0,
-						UV1,
-						UV2,
-						UV3,
-						vertex_colors,
-						tangents
+						FVector3f(z + 1, x, y),
+						FVector3f(z + 1, x, y + height),
+						FVector3f(z + 1, x + width, y + height),
+						FVector3f(z + 1, x + width, y),
+						FRealtimeMeshTangentsHighPrecision(FVector3f(1.0, 0.0, 0.0), FVector3f(0.0, 1.0, 0.0)),
+						PositionBuilder,
+						TrianglesBuilder,
+						ColorBuilder,
+						TangentBuilder,
+						PolyGroupBuilder
 					);
 					break;
 				default:
 					break;
 				}
+				num_vertices += 4;
 				x += width;
 				vPos += width;
 				if (x >= CHUNK_SIZE) {
@@ -555,9 +431,11 @@ void UMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, UProcedur
 			}
 		}
 	}
-	
-	for (int i = 0; i < vertices.Num(); i++) {
-		normals[i].Normalize(EPSILON);
+	TArray<FVector2f> uv0;
+	TArray<FVector2f> uv1;
+	for (int i = 0; i < num_vertices; i++) {
+		uv0.Add(FVector2f());
+		uv1.Add(FVector2f());
 	}
 	std::sort(quads.begin(), quads.end(), less_than_size());
 	QuadTree tree = QuadTree();
@@ -576,18 +454,29 @@ void UMeshGenerator::generate(TStaticArray<uint8, CHUNK_VOLUME> cells, UProcedur
 	FMemory::Memzero(uv_tex_data, 4 * tree.width * tree.height);
 	FMemory::Memzero(fg_tex_data, 4 * tree.width * tree.height);
 	FMemory::Memzero(bg_tex_data, 4 * tree.width * tree.height);
-	tree.update_tex(quads, (FColor*) fg_tex_data, (FColor*) bg_tex_data, (FColor*) uv_tex_data, UV1, cells, fgs, bgs, texUV);
+	tree.update_tex(quads, (FColor*) fg_tex_data, (FColor*) bg_tex_data, (FColor*) uv_tex_data, uv0, uv1, cells, fgs, bgs, texUV);
 	bg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 	fg_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 	uv_tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 	uv_tex->UpdateResource();
 	fg_tex->UpdateResource();
 	bg_tex->UpdateResource();
-	mesh.ClearMeshSection(0);
-	mesh.CreateMeshSection(0, vertices, triangles, normals, UV0, UV1, UV2, UV3, vertex_colors, tangents, false);
-	UMaterialInstanceDynamic *mat = UMaterialInstanceDynamic::Create(Material, &mesh);
+
+	UMaterialInstanceDynamic *mat = UMaterialInstanceDynamic::Create(Material, mesh);
 	mat->SetTextureParameterValue(TEXT("Foreground"), fg_tex);
 	mat->SetTextureParameterValue(TEXT("Background"), bg_tex);
 	mat->SetTextureParameterValue(TEXT("TexMap"), uv_tex);
-	mesh.SetMaterial(0, mat);
+	mesh->SetupMaterialSlot(0, "Material", mat);
+
+	for (int i = 0; i < num_vertices; i++) {
+		//UE_LOG(LogTemp, Display, TEXT("uv1 i: %d, u: %f, v: %f"), i, UV1Builder[i].X, UV1Builder[i].Y);
+		UVBuilder.Add(TRealtimeMeshTexCoords<FVector2f, 2>(uv0[i], uv1[i]));
+	}
+	//UV1Builder.Append(uv1);
+
+	const FRealtimeMeshSectionGroupKey GroupKey = FRealtimeMeshSectionGroupKey::Create(0, FName("Chunk"));
+	const FRealtimeMeshSectionKey PolyGroup0SectionKey = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 0);
+	mesh->CreateSectionGroup(GroupKey, StreamSet);
+	mesh->UpdateSectionConfig(PolyGroup0SectionKey, FRealtimeMeshSectionConfig(ERealtimeMeshSectionDrawType::Static, 0));
+	mesh_component->SetRealtimeMesh(mesh);
 }

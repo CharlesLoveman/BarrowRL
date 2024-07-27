@@ -4,7 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "ProceduralMeshComponent.h"
+#include "RealtimeMeshSimple.h"
+#include "RealtimeMeshComponent.h"
 #include "MeshGenerator.generated.h"
 
 const uint32_t CHUNK_SIZE = 32;
@@ -27,7 +28,7 @@ public:
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	void generate(TStaticArray<uint8, CHUNK_VOLUME> cells, UProceduralMeshComponent &mesh, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &uvs);
+	void generate(TStaticArray<uint8, CHUNK_VOLUME> cells, URealtimeMeshComponent *mesh_component, TArray<FColor> &fgs, TArray<FColor> &bgs, TArray<FColor> &uvs);
 
 private:
     UPROPERTY()

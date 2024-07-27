@@ -8,7 +8,6 @@
 #include "GameFramework/Actor.h"
 #include "TileCell.h"
 #include "MeshGenerator.h"
-#include "ProceduralMeshComponent.h"
 #include "MapAnchor.generated.h"
 
 
@@ -24,7 +23,6 @@ protected:
 	//FAxisAlignedBox3d bounds;
 	UE::Geometry::FAxisAlignedBox3i bounds;
 
-	UProceduralMeshComponent* VisualMesh;
 	UMaterialInstance* TileMaterialInstance;
 public:
 	// Sets default values for this actor's properties

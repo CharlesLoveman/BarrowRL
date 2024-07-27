@@ -30,13 +30,7 @@ AMapAnchor::AMapAnchor()
 void AMapAnchor::BeginPlay()
 {
 	Super::BeginPlay();
-	UMeshGenerator mesher = UMeshGenerator();
-	TArray<uint8_t> cells;
-	for (int i = 0; i < 32 * 32 * 32; i++) {
-		cells.Add(FMath::RandRange(0, 1));
-	}
-	UE_LOG(LogTemp, Display, TEXT("%d"), cells.Num());
-	//mesher.generate(cells, *VisualMesh);
+		//mesher.generate(cells, *VisualMesh);
 
 	//using namespace UE::Geometry;
 	//bounds.Min = FVector3i(0, 0, 0);

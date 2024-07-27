@@ -5,7 +5,8 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MeshGenerator.h"
-#include "ProceduralMeshComponent.h"
+#include "RealtimeMeshComponent.h"
+#include "RealtimeMeshSimple.h"
 #include "Chunk.generated.h"
 
 UCLASS()
@@ -18,7 +19,7 @@ public:
 	AChunk();
 
 	UPROPERTY(VisibleAnywhere)
-	UProceduralMeshComponent* VisualMesh;
+	TObjectPtr<URealtimeMeshComponent> VisualMesh;
 
 	UPROPERTY(VisibleAnywhere)
 	UMeshGenerator *Mesher;

@@ -9,8 +9,9 @@ AChunk::AChunk()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	VisualMesh = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("MeshComponent"));
 	Mesher = CreateDefaultSubobject<UMeshGenerator>(TEXT("UMeshGenerator"));
+	VisualMesh = CreateDefaultSubobject<URealtimeMeshComponent>(TEXT("Mesh Component"));
+	SetRootComponent(VisualMesh);
 	fgs.Add(FColor(255, 255, 255, 255));
 	fgs.Add(FColor(255, 255, 255, 255));
 	fgs.Add(FColor(255, 255, 255, 255));
@@ -70,9 +71,11 @@ void generate_cells(TStaticArray<uint8, CHUNK_VOLUME> &cells) {
 void AChunk::BeginPlay()
 {
 	Super::BeginPlay();
+	//VisualMesh = NewObject<URealtimeMeshComponent>();
+	//VisualMesh->SetupAttachment(RootComponent);
 	generate_cells(cells);
 	const double start = FPlatformTime::Seconds();
-	Mesher->generate(cells, *VisualMesh, fgs, bgs, uvs);
+	Mesher->generate(cells, VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 }
@@ -83,7 +86,7 @@ void AChunk::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 	generate_cells(cells);
 	const double start = FPlatformTime::Seconds();
-	Mesher->generate(cells, *VisualMesh, fgs, bgs, uvs);
+	Mesher->generate(cells, VisualMesh, fgs, bgs, uvs);
 	const double end = FPlatformTime::Seconds();
 	UE_LOG(LogTemp, Display, TEXT("generated in %f seconds"), end - start);
 

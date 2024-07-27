@@ -8,11 +8,12 @@ public class BarrowRL : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GeometryCore", "ProceduralMeshComponent" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GeometryCore", "RealtimeMeshComponent" });
+
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
-		PublicIncludePaths.AddRange(new string[] { "GeometryCore", "GeometryCore/Public", "ProceduralMeshComponent", "ProceduralMeshComponent/Public" });
+		PublicIncludePaths.AddRange(new string[] { "GeometryCore", "GeometryCore/Public", "RealtimeMeshComponent", "RealtimeMeshComponent/Public" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

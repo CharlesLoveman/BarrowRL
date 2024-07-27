@@ -137,154 +137,163 @@ void UGreedyMeshGenerator::generate(TArray<uint8> &cells, URealtimeMeshSimple *m
 	pos = 0;
 	double end = FPlatformTime::Seconds();
 	uint32 num_vertices = 0;
-	for (int face = 0; face < 6; face++) {
+	for (int32 face = 0; face < 6; face++) {
 		TBitArray<> &faces = faces_array[face];
-		for (int32 z = 0; z < chunk_size; z++) {
-			visited.Init(false, chunk_size * chunk_size);
-			int x = 0;
-			int y = 0;
-			int32 vPos = 0;
-			while (y < chunk_size) {
-				if (visited[vPos] || !faces[index(x, y, z, chunk_shift)]) {
-					vPos++;
-					if (x < chunk_size - 1) {
-						x++;
-					} else {
-						x = 0;
-						y++;
-					}
-					continue;
-				}
-				visited[vPos] = 1;
-				int width = 1;
-				while (x + width < chunk_size && !visited[x + width + chunk_size * y] && faces[index(x + width, y, z, chunk_shift)]) {
-					visited[vPos + width] = 1;
-					width++;
-				}
-				int height = 1;
-				while (y + height < chunk_size && faces[index(x, y + height, z, chunk_shift)]) {
-					bool flag = false;
-					for (int i = 0; i < width; i++) {
-						if (!faces[index(x + i, y + height, z, chunk_shift)]) {
-							flag = true;
-							break;
-						}
-					}
-					if (flag) {
-						break;
-					}
-					for (int i = 0; i < width; i++) {
-						visited[x + i + chunk_size * (y + height)] = 1;
-					}
-					height++;
-				}
-				switch (face) {
-				case 0:
-					quads.Add(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, x, y, z, width, height, face));
-					create_quad(
-						FVector3f(x, y, z),
-						FVector3f(x + width, y, z),
-						FVector3f(x + width, y + height, z),
-						FVector3f(x, y + height, z),
-						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(-1.0, 0.0, 0.0)),
-						PositionBuilder,
-						TrianglesBuilder,
-						ColorBuilder,
-						TangentBuilder,
-						PolyGroupBuilder,
-						lod
-					);
-					break;
-				case 1:
-					quads.Add(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, x, y, z, width, height, face));
-					create_quad(
-						FVector3f(x, y, z + 1),
-						FVector3f(x, y + height, z + 1),
-						FVector3f(x + width, y + height, z + 1),
-						FVector3f(x + width, y, z + 1),
-						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(-1.0, 0.0, 0.0)),
-						PositionBuilder,
-						TrianglesBuilder,
-						ColorBuilder,
-						TangentBuilder,
-						PolyGroupBuilder,
-						lod
-					);
-					break;
-				case 2:
-					quads.Add(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, x, z, y, width, height, face));
-					create_quad(
-						FVector3f(x, z, y),
-						FVector3f(x, z, y + height),
-						FVector3f(x + width, z, y + height),
-						FVector3f(x + width, z, y),
-						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0, -1.0, 0.0), FVector3f(1.0, 0.0, 0.0)),
-						PositionBuilder,
-						TrianglesBuilder,
-						ColorBuilder,
-						TangentBuilder,
-						PolyGroupBuilder,
-						lod
-					);
-					break;
-				case 3:
-					quads.Add(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, x, z, y, width, height, face));
-					create_quad(
-						FVector3f(x, z + 1, y),
-						FVector3f(x + width, z + 1, y),
-						FVector3f(x + width, z + 1, y + height),
-						FVector3f(x, z + 1, y + height),
-						FRealtimeMeshTangentsHighPrecision(FVector3f(0.0, 1.0, 0.0), FVector3f(1.0, 0.0, 0.0)),
-						PositionBuilder,
-						TrianglesBuilder,
-						ColorBuilder,
-						TangentBuilder,
-						PolyGroupBuilder,
-						lod
-					);
-					break;
-				case 4:
-					quads.Add(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, z, x, y, width, height, face));
-					create_quad(
-						FVector3f(z, x, y),
-						FVector3f(z, x + width, y),
-						FVector3f(z, x + width, y + height),
-						FVector3f(z, x, y + height),
-						FRealtimeMeshTangentsHighPrecision(FVector3f(-1.0, 0.0, 0.0), FVector3f(0.0, 1.0, 0.0)),
-						PositionBuilder,
-						TrianglesBuilder,
-						ColorBuilder,
-						TangentBuilder,
-						PolyGroupBuilder,
-						lod
-					);
-					break;
-				case 5:
-					quads.Add(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, z, x, y, width, height, face));
-					create_quad(
-						FVector3f(z + 1, x, y),
-						FVector3f(z + 1, x, y + height),
-						FVector3f(z + 1, x + width, y + height),
-						FVector3f(z + 1, x + width, y),
-						FRealtimeMeshTangentsHighPrecision(FVector3f(1.0, 0.0, 0.0), FVector3f(0.0, 1.0, 0.0)),
-						PositionBuilder,
-						TrianglesBuilder,
-						ColorBuilder,
-						TangentBuilder,
-						PolyGroupBuilder,
-						lod
-					);
-					break;
-				default:
+		visited.Init(false, chunk_size * chunk_size);
+		int32 x = 0;
+		int32 y = 0;
+		int32 z = 0;
+		int32 visited_pos = 0;
+		while (visited_pos < chunk_size * chunk_size * chunk_size) {
+			bool flag = false;
+			while (visited[visited_pos] || !faces[index(x, y, z, chunk_shift)]) {
+				x++;
+				int32 next_face = faces.FindFrom(true, index(x, y, z, chunk_shift));
+				if (next_face < 0) {
+					flag = true;
 					break;
 				}
-				num_vertices += 4;
-				x += width;
-				vPos += width;
-				if (x >= chunk_size) {
-					x = 0;
-					y++;
+				x = next_face % chunk_size;
+				y = (next_face % (chunk_size * chunk_size)) / chunk_size;
+				visited_pos = x + y * chunk_size;
+				if (next_face / (chunk_size * chunk_size) > z) {
+					z = next_face / (chunk_size * chunk_size);
+					visited.Init(false, chunk_size * chunk_size);
+					break;
 				}
+			}
+			if (z > chunk_size || flag) {
+				break;
+			}
+			int32 visited_width = abs(std::max(-chunk_size, visited.FindFrom(true, visited_pos) - visited_pos));
+			int32 face_width = abs(std::max(-chunk_size, faces.FindFrom(false, index(x, y, z, chunk_shift)) - index(x, y, z, chunk_shift)));
+			int32 width = std::min(chunk_size - x, std::min(visited_width, face_width));
+			visited.SetRange(visited_pos, width, true);
+			int32 height = 1;
+			while (y + height < chunk_size && faces[index(x, y + height, z, chunk_shift)]) {
+				face_width = faces.FindFrom(false, index(x, y + height, z, chunk_shift)) - index(x, y + height, z, chunk_shift);
+				if (face_width > 0 && face_width < width) {
+					break;
+				}
+				visited.SetRange(x + chunk_size * (y + height), width, true);
+				height++;
+			}
+			switch (face) {
+			case 0:
+				quads.Add(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, x, y, z, width, height, face));
+				create_quad(
+					FVector3f(x, y, z),
+					FVector3f(x + width, y, z),
+					FVector3f(x + width, y + height, z),
+					FVector3f(x, y + height, z),
+					FRealtimeMeshTangentsHighPrecision(FVector3f(0.0f, 0.0f, -1.0f), FVector3f(-1.0, 0.0, 0.0)),
+					PositionBuilder,
+					TrianglesBuilder,
+					ColorBuilder,
+					TangentBuilder,
+					PolyGroupBuilder,
+					lod
+				);
+				break;
+			case 1:
+				quads.Add(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, x, y, z, width, height, face));
+				create_quad(
+					FVector3f(x, y, z + 1),
+					FVector3f(x, y + height, z + 1),
+					FVector3f(x + width, y + height, z + 1),
+					FVector3f(x + width, y, z + 1),
+					FRealtimeMeshTangentsHighPrecision(FVector3f(0.0f, 0.0f, 1.0f), FVector3f(-1.0, 0.0, 0.0)),
+					PositionBuilder,
+					TrianglesBuilder,
+					ColorBuilder,
+					TangentBuilder,
+					PolyGroupBuilder,
+					lod
+				);
+				break;
+			case 2:
+				quads.Add(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, x, z, y, width, height, face));
+				create_quad(
+					FVector3f(x, z, y),
+					FVector3f(x, z, y + height),
+					FVector3f(x + width, z, y + height),
+					FVector3f(x + width, z, y),
+					FRealtimeMeshTangentsHighPrecision(FVector3f(0.0, -1.0, 0.0), FVector3f(1.0, 0.0, 0.0)),
+					PositionBuilder,
+					TrianglesBuilder,
+					ColorBuilder,
+					TangentBuilder,
+					PolyGroupBuilder,
+					lod
+				);
+				break;
+			case 3:
+				quads.Add(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, x, z, y, width, height, face));
+				create_quad(
+					FVector3f(x, z + 1, y),
+					FVector3f(x + width, z + 1, y),
+					FVector3f(x + width, z + 1, y + height),
+					FVector3f(x, z + 1, y + height),
+					FRealtimeMeshTangentsHighPrecision(FVector3f(0.0, 1.0, 0.0), FVector3f(1.0, 0.0, 0.0)),
+					PositionBuilder,
+					TrianglesBuilder,
+					ColorBuilder,
+					TangentBuilder,
+					PolyGroupBuilder,
+					lod
+				);
+				break;
+			case 4:
+				quads.Add(Quad(num_vertices, num_vertices + 1, num_vertices + 2, num_vertices + 3, z, x, y, width, height, face));
+				create_quad(
+					FVector3f(z, x, y),
+					FVector3f(z, x + width, y),
+					FVector3f(z, x + width, y + height),
+					FVector3f(z, x, y + height),
+					FRealtimeMeshTangentsHighPrecision(FVector3f(-1.0, 0.0, 0.0), FVector3f(0.0, 1.0, 0.0)),
+					PositionBuilder,
+					TrianglesBuilder,
+					ColorBuilder,
+					TangentBuilder,
+					PolyGroupBuilder,
+					lod
+				);
+				break;
+			case 5:
+				quads.Add(Quad(num_vertices, num_vertices + 3, num_vertices + 2, num_vertices + 1, z, x, y, width, height, face));
+				create_quad(
+					FVector3f(z + 1, x, y),
+					FVector3f(z + 1, x, y + height),
+					FVector3f(z + 1, x + width, y + height),
+					FVector3f(z + 1, x + width, y),
+					FRealtimeMeshTangentsHighPrecision(FVector3f(1.0, 0.0, 0.0), FVector3f(0.0, 1.0, 0.0)),
+					PositionBuilder,
+					TrianglesBuilder,
+					ColorBuilder,
+					TangentBuilder,
+					PolyGroupBuilder,
+					lod
+				);
+				break;
+			default:
+				break;
+			}
+			num_vertices += 4;
+			x += width;
+			visited_pos += width;
+			if (x >= chunk_size) {
+				x = 0;
+				y++;
+				visited_pos = y * chunk_size;
+			}
+			if (y >= chunk_size) {
+				visited_pos = 0;
+				visited.Init(false, chunk_size * chunk_size);
+				y = 0;
+				z++;
+			}
+			if (z >= chunk_size) {
+				break;
 			}
 		}
 	}
@@ -297,10 +306,8 @@ void UGreedyMeshGenerator::generate(TArray<uint8> &cells, URealtimeMeshSimple *m
 	mesh->SetupMaterialSlot(lod, "Material", mat_generator->generate(quads, cells, uv0, uv1, mesh, lod, chunk_shift));
 
 	for (int i = 0; i < num_vertices; i++) {
-		//UE_LOG(LogTemp, Display, TEXT("uv1 i: %d, u: %f, v: %f"), i, UV1Builder[i].X, UV1Builder[i].Y);
 		UVBuilder.Add(TRealtimeMeshTexCoords<FVector2f, 2>(uv0[i], uv1[i]));
 	}
-	//UV1Builder.Append(uv1);
 
 	const FRealtimeMeshSectionGroupKey GroupKey = FRealtimeMeshSectionGroupKey::Create(lod, FName("Chunk"));
 	const FRealtimeMeshSectionKey PolyGroup0SectionKey = FRealtimeMeshSectionKey::CreateForPolyGroup(GroupKey, 0);

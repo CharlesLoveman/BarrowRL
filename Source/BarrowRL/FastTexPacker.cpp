@@ -2,6 +2,7 @@
 
 
 #include "FastTexPacker.h"
+#include "ChunkConstants.h"
 #include "MaterialGenerator.h"
 
 // Sets default values for this component's properties
@@ -129,9 +130,9 @@ void UFastTexPacker::update_tex(
 		int32 x_offset = (quad.tile_id % cols) * chunk_size;
 		int32 y_offset = (quad.tile_id / cols) * chunk_size;
 		uv0[quad.v1] = FVector2f(0.0, 0.0);
-		uv0[quad.v2] = FVector2f(quad.width, 0.0);
-		uv0[quad.v3] = FVector2f(quad.width, quad.height);
-		uv0[quad.v4] = FVector2f(0.0, quad.height);
+		uv0[quad.v2] = FVector2f(quad.width, 0.0) * (CHUNK_SIZE / chunk_size);
+		uv0[quad.v3] = FVector2f(quad.width, quad.height) * (CHUNK_SIZE / chunk_size);
+		uv0[quad.v4] = FVector2f(0.0, quad.height) * (CHUNK_SIZE / chunk_size);
 		uv1[quad.v1] = FVector2f(x_offset + quad.tex_x, y_offset + quad.tex_y) / FVector2f(width, height);
 		uv1[quad.v2] = FVector2f(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y) / FVector2f(width, height);
 		uv1[quad.v3] = FVector2f(x_offset + quad.tex_x + quad.width, y_offset + quad.tex_y + quad.height) / FVector2f(width, height);
